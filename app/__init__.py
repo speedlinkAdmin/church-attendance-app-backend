@@ -17,6 +17,7 @@ def create_app(config_object=None):
     cors.init_app(app)
 
      # Initialize Swagger
+    # Initialize Swagger
     swagger_config = {
         "headers": [],
         "specs": [
@@ -29,34 +30,54 @@ def create_app(config_object=None):
         ],
         "static_url_path": "/flasgger_static",
         "swagger_ui": True,
-        "specs_route": "/docs/",  # where Swagger UI will be available
+        "specs_route": "/docs/",  # Swagger UI location
     }
 
     template = {
         "swagger": "2.0",
         "info": {
-            "title": "Your Project API",
-            "description": "Auto-generated API documentation using Flasgger",
+            "title": "PARADOX API",
+            "description": "Powering organizational intelligence with precision — PARADOX backend services and API documentation.",
             "version": "1.0.0",
-
-            "securityDefinitions": {
-    "Bearer": {
-        "type": "apiKey",
-        "name": "Authorization",
-        "in": "header",
-        "description": "JWT Authorization header using the Bearer scheme. Example: 'Bearer {token}'"
-    }
-}
-
+            "contact": {
+                "name": "PARADOX Dev Team",
+                "email": "support@paradox.io"
+            },
+            "license": {
+                "name": "MIT License"
+            },
         },
-        "basePath": "/",  # base path for your API
+        "basePath": "/",
         "schemes": ["http", "https"],
+        "securityDefinitions": {
+            "Bearer": {
+                "type": "apiKey",
+                "name": "Authorization",
+                "in": "header",
+                "description": "JWT Authorization header using the Bearer scheme. Example: 'Bearer {token}'"
+            }
+        }
     }
 
     Swagger(app, config=swagger_config, template=template)
 
     # register routes/blueprints
     register_routes(app)
+
+     # -------------------------------
+    # 💠 Base route for your brand
+    # -------------------------------
+    @app.route("/")
+    def index():
+        """
+        Welcome message for the PARADOX API.
+        """
+        return jsonify({
+            "brand": "PARADOX",
+            "message": "All HAil Paradox — Empowering Data, People & Intelligence.",
+            "docs_url": "/docs/",
+            "status": "running ✅"
+        }), 200
 
     # simple root for quick health-check
     @app.route("/health")
