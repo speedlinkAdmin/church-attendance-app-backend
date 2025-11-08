@@ -127,8 +127,11 @@ def login():
     if not user.is_active:
         return jsonify({"error": "account disabled"}), 403
 
-    access = create_access_token(identity=user.id, additional_claims={"roles": [r.name for r in user.roles]})
-    refresh = create_refresh_token(identity=user.id)
+    # access = create_access_token(identity=user.id, additional_claims={"roles": [r.name for r in user.roles]})
+    # refresh = create_refresh_token(identity=user.id)
+    access = create_access_token(identity=str(user.id), additional_claims={"roles": [r.name for r in user.roles]})
+    refresh = create_refresh_token(identity=str(user.id))
+
     return jsonify({"access_token": access, "refresh_token": refresh, "user": user.to_dict()}), 200
 
 @auth_bp.route("/refresh", methods=["POST"])
@@ -149,7 +152,8 @@ def refresh():
         description: Missing or invalid refresh token
     """
     user_id = get_jwt_identity()
-    access = create_access_token(identity=user_id)
+    # access = create_access_token(identity=user_id)
+    access = create_access_token(identity=str(user_id))
     return jsonify({"access_token": access}), 200
 
 @auth_bp.route("/me", methods=["GET"])
