@@ -10,7 +10,6 @@ from flasgger import swag_from
 
 
 attendance_bp = Blueprint("attendance", __name__)
-
 @attendance_bp.route("/attendance", methods=["POST"])
 @jwt_required()
 @swag_from({
@@ -63,9 +62,23 @@ attendance_bp = Blueprint("attendance", __name__)
 })
 def create_attendance():
     data = request.get_json() or {}
+    
+    # Validate old_group_id exists if provided
+    if data.get('old_group_id'):
+        from ..models import OldGroup
+        old_group = OldGroup.query.get(data['old_group_id'])
+        if not old_group:
+            return jsonify({"error": f"Old Group with ID {data['old_group_id']} does not exist"}), 400
+    
+    # Validate group_id exists if provided
+    if data.get('group_id'):
+        from ..models import Group
+        group = Group.query.get(data['group_id'])
+        if not group:
+            return jsonify({"error": f"Group with ID {data['group_id']} does not exist"}), 400
+    
     attendance = attendance_controller.create_attendance(data)
     return jsonify(attendance.to_dict()), 201
-
 
 # @attendance_bp.route("/attendance", methods=["POST"])
 # @jwt_required()
@@ -112,10 +125,8 @@ def create_attendance():
 #     data = request.get_json() or {}
 #     attendance = attendance_controller.create_attendance(data)
 #     return jsonify(attendance.to_dict()), 201
-
 @attendance_bp.route("/attendance/upload", methods=["POST"])
 @jwt_required()
-# @role_required(["Super Admin", "State Admin"])
 @swag_from({
     "tags": ["Attendance"],
     "summary": "Bulk upload attendance via CSV",
@@ -149,39 +160,47 @@ def upload_attendance_csv():
     records = []
     for row in csv_reader:
         try:
+            # Validate old_group_id exists if provided
+            if row.get("old_group_id") and row["old_group_id"].strip():
+                from ..models import OldGroup
+                old_group = OldGroup.query.get(int(row["old_group_id"]))
+                if not old_group:
+                    return jsonify({"error": f"Old Group with ID {row['old_group_id']} does not exist"}), 400
+            
+            # Validate group_id exists if provided
+            if row.get("group_id") and row["group_id"].strip():
+                from ..models import Group
+                group = Group.query.get(int(row["group_id"]))
+                if not group:
+                    return jsonify({"error": f"Group with ID {row['group_id']} does not exist"}), 400
+
             attendance = Attendance(
                 service_type=row["service_type"],
-                state_id=row["state_id"],
-                region_id=row["region_id"],
-                district_id=row["district_id"],
-                group_id=row.get("group_id"),
-                old_group_id=row.get("old_group_id"),
+                state_id=int(row["state_id"]),
+                region_id=int(row["region_id"]),
+                district_id=int(row["district_id"]),
+                group_id=int(row["group_id"]) if row.get("group_id") and row["group_id"].strip() else None,
+                old_group_id=int(row["old_group_id"]) if row.get("old_group_id") and row["old_group_id"].strip() else None,
                 month=row["month"],
-                week=row["week"],
-                men=row["men"],
-                women=row["women"],
-                youth_boys=row["youth_boys"],
-                youth_girls=row["youth_girls"],
-                children_boys=row["children_boys"],
-                children_girls=row["children_girls"],
-                year=row["year"],
+                week=int(row["week"]),
+                men=int(row["men"]),
+                women=int(row["women"]),
+                youth_boys=int(row["youth_boys"]),
+                youth_girls=int(row["youth_girls"]),
+                children_boys=int(row["children_boys"]),
+                children_girls=int(row["children_girls"]),
+                year=int(row["year"]),
             )
             records.append(attendance)
         except KeyError as e:
             return jsonify({"error": f"Missing column in CSV: {e}"}), 400
+        except ValueError as e:
+            return jsonify({"error": f"Invalid data format in row: {e}"}), 400
 
     db.session.bulk_save_objects(records)
     db.session.commit()
 
     return jsonify({"message": f"{len(records)} attendance records uploaded successfully"}), 201
-
-
-# @attendance_bp.route("/attendance", methods=["GET"])
-# @jwt_required()
-# def get_attendance():
-#     service_type = request.args.get("service_type")
-#     records = attendance_controller.get_all_attendance(service_type)
-#     return jsonify([a.to_dict() for a in records]), 200
 
 
 @attendance_bp.route("/attendance", methods=["GET"])
@@ -215,14 +234,19 @@ def get_attendance():
     year = request.args.get("year")
     month = request.args.get("month")
 
-    # Apply filters based on user role
+    # Apply filters based on user role - FIXED VERSION
     state_id = region_id = district_id = None
-    if user.role.name == "State Admin":
+    
+    # Get user role names from the many-to-many relationship
+    user_role_names = [role.name for role in user.roles]
+    
+    if "State Admin" in user_role_names:
         state_id = user.state_id
-    elif user.role.name == "Regional Admin":
+    elif "Regional Admin" in user_role_names:
         region_id = user.region_id
-    elif user.role.name == "District Admin":
+    elif "District Admin" in user_role_names:
         district_id = user.district_id
+    # Note: "Super Admin" will have access to all records (no filters)
 
     records = attendance_controller.get_all_attendance(
         service_type=service_type,
@@ -234,6 +258,7 @@ def get_attendance():
     )
 
     return jsonify([a.to_dict() for a in records]), 200
+
 
 @attendance_bp.route("/attendance/<int:attendance_id>", methods=["GET"])
 @jwt_required()
