@@ -89,7 +89,7 @@ class Group(db.Model):
     region = db.relationship('Region', backref='region_groups', lazy=True)
     district = db.relationship('District', backref='district_groups', lazy=True)
 
-    old_groups = db.relationship('OldGroup', backref='group', lazy=True)
+    old_groups = db.relationship('OldGroup', back_populates='group', lazy=True)
 
     def __repr__(self):
         return f"<Group {self.name}>"
@@ -122,7 +122,7 @@ class OldGroup(db.Model):
     state = db.relationship('State', backref='old_state_groups', lazy=True)
     region = db.relationship('Region', backref='old_region_groups', lazy=True)
     district = db.relationship('District', backref='old_district_groups', lazy=True)
-    group = db.relationship('Group', backref='old_group_links', lazy=True)
+    group = db.relationship('Group', backref='old_groups', lazy=True)
 
     def __repr__(self):
         return f"<OldGroup {self.name}>"
