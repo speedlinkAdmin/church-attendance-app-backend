@@ -237,8 +237,8 @@ def get_attendance():
     # Apply filters based on user role - FIXED VERSION
     state_id = region_id = district_id = None
     
-    # Get user role names from the many-to-many relationship
-    user_role_names = [role.name for role in user.roles]
+    # Get user role names from the many-to-many relationship - SAFE ACCESS
+    user_role_names = [role.name for role in user.roles] if user.roles else []
     
     if "State Admin" in user_role_names:
         state_id = user.state_id
@@ -258,7 +258,6 @@ def get_attendance():
     )
 
     return jsonify([a.to_dict() for a in records]), 200
-
 
 @attendance_bp.route("/attendance/<int:attendance_id>", methods=["GET"])
 @jwt_required()

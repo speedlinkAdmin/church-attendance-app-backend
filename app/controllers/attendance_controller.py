@@ -7,12 +7,6 @@ def create_attendance(data):
     db.session.commit()
     return attendance
 
-# def get_all_attendance(service_type=None):
-#     query = Attendance.query
-#     if service_type:
-#         query = query.filter_by(service_type=service_type)
-#     return query.all()
-
 def get_all_attendance(service_type=None, state_id=None, region_id=None, district_id=None, year=None, month=None):
     query = Attendance.query
 
@@ -28,7 +22,9 @@ def get_all_attendance(service_type=None, state_id=None, region_id=None, distric
         query = query.filter_by(year=year)
     if month:
         query = query.filter_by(month=month)
-
+    
+    # ADD THIS RETURN STATEMENT - it was missing!
+    return query.all()
 
 def get_attendance_by_id(attendance_id):
     return Attendance.query.get(attendance_id)
