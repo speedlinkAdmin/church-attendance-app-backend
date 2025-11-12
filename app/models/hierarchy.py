@@ -57,7 +57,7 @@ class District(db.Model):
     state_id = db.Column(db.Integer, db.ForeignKey('states.id'), nullable=False)
     region_id = db.Column(db.Integer, db.ForeignKey('regions.id'), nullable=False)
 
-    groups = db.relationship('Group', backref='district', lazy=True)
+    # groups = db.relationship('Group', backref='district', lazy=True)
 
     def __repr__(self):
         return f"<District {self.name}>"
