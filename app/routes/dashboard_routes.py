@@ -54,7 +54,7 @@ def get_user_access_scope(user):
                     "total_users": 150,
                     "total_attendance": 5000,
                     "states_count": 5,
-                    "recent_activity": [...]
+                    "recent_activity": "."
                 }
             }
         }
@@ -213,9 +213,9 @@ def get_attendance_in_scope():
             "description": "Hierarchy data",
             "examples": {
                 "application/json": {
-                    "states": [...],
-                    "regions": [...],
-                    "districts": [...]
+                    "states": "",
+                    "regions": "",
+                    "districts": ""
                 }
             }
         }
