@@ -1,0 +1,51 @@
+from ..extensions import db
+from ..models import YouthAttendance
+
+
+def create_youth_attendance(data):
+    obj = YouthAttendance(**data)
+    db.session.add(obj)
+    db.session.commit()
+    return obj
+
+
+def get_all_youth_attendance(attendance_type=None, state_id=None, region_id=None, district_id=None, year=None, month=None):
+    query = YouthAttendance.query
+
+    if attendance_type:
+        query = query.filter_by(attendance_type=attendance_type)
+    if state_id:
+        query = query.filter_by(state_id=state_id)
+    if region_id:
+        query = query.filter_by(region_id=region_id)
+    if district_id:
+        query = query.filter_by(district_id=district_id)
+    if year:
+        query = query.filter_by(year=year)
+    if month:
+        query = query.filter_by(month=month)
+
+    return query.all()
+
+
+def get_youth_attendance_by_id(record_id):
+    return YouthAttendance.query.get(record_id)
+
+
+def update_youth_attendance(record_id, data):
+    obj = YouthAttendance.query.get(record_id)
+    if not obj:
+        return None
+    for key, value in data.items():
+        setattr(obj, key, value)
+    db.session.commit()
+    return obj
+
+
+def delete_youth_attendance(record_id):
+    obj = YouthAttendance.query.get(record_id)
+    if obj:
+        db.session.delete(obj)
+        db.session.commit()
+        return True
+    return False
