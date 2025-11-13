@@ -1,6 +1,6 @@
 from flask import Flask
 from config import Config
-from .extensions import db, migrate, jwt, cors, CustomJSONEncoder
+from .extensions import db, migrate, jwt, cors, CustomJSONProvider
 from .routes import register_routes
 import logging 
 from flask import jsonify
@@ -10,7 +10,7 @@ def create_app(config_object=None):
     app = Flask(__name__)
     app.config.from_object(config_object or Config)
 
-    app.json_encoder = CustomJSONEncoder
+    app.json_encoder = CustomJSONProvider(app)
 
     # init extensions
     db.init_app(app)
