@@ -10,9 +10,9 @@ class Attendance(db.Model):
     # Hierarchy references
     state_id = db.Column(db.Integer, db.ForeignKey("states.id"), nullable=False)
     region_id = db.Column(db.Integer, db.ForeignKey("regions.id"), nullable=False)
-    district_id = db.Column(db.Integer, db.ForeignKey("districts.id"), nullable=False)
-    group_id = db.Column(db.Integer, db.ForeignKey("groups.id"), nullable=True)
     old_group_id = db.Column(db.Integer, db.ForeignKey("old_groups.id"), nullable=True)
+    group_id = db.Column(db.Integer, db.ForeignKey("groups.id"), nullable=True)
+    district_id = db.Column(db.Integer, db.ForeignKey("districts.id"), nullable=True)  # Now optional
 
     # Attendance data
     month = db.Column(db.String(20), nullable=False)

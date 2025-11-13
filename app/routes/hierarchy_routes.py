@@ -359,7 +359,9 @@ def create_district():
         code=data['code'],
         leader=data.get('leader'),
         state_id=data['state_id'],
-        region_id=data['region_id']
+        region_id=data['region_id'],
+        old_group_id=data['old_group_id'],
+        group_id=data['group_id']
     )
     db.session.add(district)
     db.session.commit()
@@ -498,103 +500,33 @@ def delete_district(id):
 })
 def create_group():
     data = request.get_json() or {}
-
-    # Validate required fields
-    required_fields = ["group_name", "state_id", "region_id", "district_id"]
+    
+    required_fields = ["name", "state_id", "region_id", "old_group_id"]
     for field in required_fields:
         if not data.get(field):
             return jsonify({"error": f"Missing required field '{field}'"}), 400
 
-    # Auto-generate group code from first 2 letters of group name (uppercase)
-    group_name = data["group_name"]
-    group_code = f"GRP-{''.join([word[0].upper() for word in group_name.split()[:2]])}"
-
-    # Ensure code is unique
-    group_code = group_code
-    i = 1
-    while Group.query.filter_by(code=group_code).first():
-        group_code = f"{group_code}{i}"
-        i += 1
+    # Auto-generate code
+    name = data["name"]
+    code = f"GRP-{''.join([word[0].upper() for word in name.split()[:2]])}"
 
     group = Group(
-        name=group_name,
-        code=group_code,
+        name=name,
+        code=code,
         leader=data.get("leader"),
         state_id=data["state_id"],
         region_id=data["region_id"],
-        district_id=data["district_id"]
+        old_group_id=data["old_group_id"]
     )
 
     db.session.add(group)
     db.session.commit()
 
     return jsonify({
-        "status": "success",
-        "message": "Group created successfully",
-        "data": {
-            "id": group.id,
-            "group_name": group.name,
-            "group_code": group.code,
-            "state_id": group.state_id,
-            "region_id": group.region_id,
-            "district_id": group.district_id,
-            "leader": group.leader,
-            "access_level": data.get("access_level")
-        }
+        "message": "Group created",
+        "data": group.to_dict()
     }), 201
 
-# ### ---------- GROUPS ----------
-# @hierarchy_bp.route('/groups', methods=['POST'])
-# @swag_from({
-#     "tags": ["Groups"],
-#     "summary": "Create a new group",
-#     "description": "Creates a new group by specifying group name, state, and access level.",
-#     "parameters": [
-#         {
-#             "name": "body",
-#             "in": "body",
-#             "required": True,
-#             "schema": {
-#                 "properties": {
-#                     "group_name": {"type": "string"},
-#                     "state_id": {"type": "integer"},
-#                     "access_level": {"type": "string", "example": "state-admin"},
-#                 },
-#                 "required": ["group_name", "state_id"]
-#             },
-#         }
-#     ],
-#     "responses": {
-#         "201": {
-#             "description": "Group successfully created",
-#             "examples": {
-#                 "application/json": {
-#                     "status": "success",
-#                     "data": {
-#                         "id": 1,
-#                         "group_name": "South West Admins",
-#                         "state_id": 5,
-#                         "access_level": "state-admin"
-#                     }
-#                 }
-#             },
-#         },
-#         "400": {"description": "Invalid input data"},
-#     },
-# })
-# def create_group():
-#     data = request.get_json()
-#     group = Group(
-#         name=data['group_name'],
-#         code=data['code'],
-#         leader=data.get('leader'),
-#         state_id=data['state_id'],
-#         region_id=data['region_id'],
-#         district_id=data['district_id']
-#     )
-#     db.session.add(group)
-#     db.session.commit()
-#     return jsonify({"message": "Group created"}), 201
 
 @hierarchy_bp.route('/groups', methods=['GET'])
 @swag_from({
@@ -632,41 +564,6 @@ def get_groups():
         "state": g.state.name if g.state else None
     } for g in groups])
 
-# ---------------------------
-# UPDATE GROUP
-# # ---------------------------
-# @group_bp.route("/groups/<int:group_id>", methods=["PUT"])
-# @swag_from({
-#     "tags": ["Groups"],
-#     "summary": "Update a group",
-#     "description": "Update an existing group's name or access level.",
-#     "parameters": [
-#         {"name": "group_id", "in": "path", "type": "integer", "required": True, "description": "Group ID"},
-#         {
-#             "name": "body",
-#             "in": "body",
-#             "schema": {
-#                 "properties": {
-#                     "group_name": {"type": "string"},
-#                     "access_level": {"type": "string"}
-#                 }
-#             },
-#         },
-#     ],
-#     "responses": {
-#         "200": {
-#             "description": "Group updated successfully",
-#             "examples": {
-#                 "application/json": {"status": "success", "message": "Group updated successfully"}
-#             },
-#         },
-#         "404": {"description": "Group not found"},
-#     },
-# })
-# def update_group(group_id):
-#     data = request.get_json()
-#     return jsonify({"status": "success", "message": f"Group {group_id} updated"}), 200
-
 
 # ---------------------------
 # DELETE GROUP
@@ -689,6 +586,7 @@ def delete_group(group_id):
 
 
 ### ---------- OLD GROUPS ----------
+### ---------- OLD GROUPS ----------
 @hierarchy_bp.route('/oldgroups', methods=['POST'])
 @swag_from({
     "tags": ["Old Groups"],
@@ -705,11 +603,9 @@ def delete_group(group_id):
                     "name": {"type": "string", "example": "Calabar Admins"},
                     "leader": {"type": "string", "example": "Jane Doe"},
                     "state_id": {"type": "integer", "example": 1},
-                    "region_id": {"type": "integer", "example": 2},
-                    "district_id": {"type": "integer", "example": 3},
-                    "group_id": {"type": "integer", "example": 1}
+                    "region_id": {"type": "integer", "example": 2}
                 },
-                "required": ["name", "state_id", "region_id", "district_id", "group_id"]
+                "required": ["name", "state_id", "region_id"]
             }
         }
     ],
@@ -725,9 +621,7 @@ def delete_group(group_id):
                         "code": "GRP-CA",
                         "leader": "Jane Doe",
                         "state_id": 1,
-                        "region_id": 2,
-                        "district_id": 3,
-                        "group_id": 1
+                        "region_id": 2
                     }
                 }
             }
@@ -738,8 +632,8 @@ def delete_group(group_id):
 def create_oldgroup():
     data = request.get_json() or {}
 
-    # Validate required fields
-    required_fields = ["name", "state_id", "region_id", "district_id", "group_id"]
+    # Validate required fields - REMOVED district_id and group_id
+    required_fields = ["name", "state_id", "region_id"]
     for field in required_fields:
         if not data.get(field):
             return jsonify({"error": f"Missing required field '{field}'"}), 400
@@ -753,9 +647,8 @@ def create_oldgroup():
         code=code,
         leader=data.get("leader"),
         state_id=data["state_id"],
-        region_id=data["region_id"],
-        district_id=data["district_id"],
-        group_id=data["group_id"]
+        region_id=data["region_id"]
+        # REMOVED: district_id and group_id
     )
 
     db.session.add(old_group)
@@ -769,14 +662,12 @@ def create_oldgroup():
             "code": old_group.code,
             "leader": old_group.leader,
             "state_id": old_group.state_id,
-            "region_id": old_group.region_id,
-            "district_id": old_group.district_id,
-            "group_id": old_group.group_id
+            "region_id": old_group.region_id
+            # REMOVED: district_id and group_id
         }
     }), 201
 
-### ---------- OLD GROUPS ----------
-@hierarchy_bp.route('/oldgroups/<int:id>', methods=['PUT'])
+### --@hierarchy_bp.route('/oldgroups/<int:id>', methods=['PUT'])
 @swag_from({
     "tags": ["Old Groups"],
     "summary": "Update an Old Group",
@@ -800,8 +691,6 @@ def create_oldgroup():
                     "leader": {"type": "string", "example": "John Doe"},
                     "state_id": {"type": "integer", "example": 1},
                     "region_id": {"type": "integer", "example": 2},
-                    "district_id": {"type": "integer", "example": 3},
-                    "group_id": {"type": "integer", "example": 1},
                     "regenerate_code": {"type": "boolean", "example": True, "description": "Whether to regenerate code from name"}
                 }
             }
@@ -819,9 +708,7 @@ def create_oldgroup():
                         "code": "GRP-CA",
                         "leader": "John Doe",
                         "state_id": 1,
-                        "region_id": 2,
-                        "district_id": 3,
-                        "group_id": 1
+                        "region_id": 2
                     }
                 }
             }
@@ -854,11 +741,7 @@ def update_oldgroup(id):
     if 'region_id' in data:
         old_group.region_id = data['region_id']
     
-    if 'district_id' in data:
-        old_group.district_id = data['district_id']
-    
-    if 'group_id' in data:
-        old_group.group_id = data['group_id']
+    # REMOVED: district_id and group_id updates
 
     db.session.commit()
 
@@ -870,9 +753,8 @@ def update_oldgroup(id):
             "code": old_group.code,
             "leader": old_group.leader,
             "state_id": old_group.state_id,
-            "region_id": old_group.region_id,
-            "district_id": old_group.district_id,
-            "group_id": old_group.group_id
+            "region_id": old_group.region_id
+            # REMOVED: district_id and group_id
         }
     }), 200
 
@@ -937,10 +819,8 @@ def delete_oldgroup(id):
                     "name": "Calabar Admins",
                     "code": "GRP-CA",
                     "leader": "Jane Doe",
-                    "group": "Main Group",
-                    "district": "Calabar District",
-                    "region": "South Region",
-                    "state": "Cross River"
+                    "state": "Cross River",
+                    "region": "South Region"
                 }
             }
         },
@@ -957,12 +837,10 @@ def get_oldgroup(id):
         "name": old_group.name,
         "code": old_group.code,
         "leader": old_group.leader,
-        "group": old_group.group.name if old_group.group else None,
-        "district": old_group.group.district.name if old_group.group and old_group.group.district else None,
-        "region": old_group.group.region.name if old_group.group and old_group.group.region else None,
-        "state": old_group.group.region.state.name if old_group.group and old_group.group.region and old_group.group.region.state else None
+        "state": old_group.state.name if old_group.state else None,
+        "region": old_group.region.name if old_group.region else None
+        # REMOVED: group, district references
     }), 200
-
 @hierarchy_bp.route('/oldgroups', methods=['GET'])
 @swag_from({
     "tags": ["Old Groups"],
@@ -970,7 +848,7 @@ def get_oldgroup(id):
     "description": "Fetch all previously deactivated or archived groups with optional filters.",
     "parameters": [
         {"name": "state_id", "in": "query", "type": "integer", "required": False},
-        {"name": "date_archived", "in": "query", "type": "string", "required": False, "description": "Filter by archive date (YYYY-MM-DD)"}
+        {"name": "region_id", "in": "query", "type": "integer", "required": False}
     ],
     "responses": {
         "200": {
@@ -979,7 +857,7 @@ def get_oldgroup(id):
                 "application/json": {
                     "status": "success",
                     "data": [
-                        {"id": 3, "group_name": "North Central Admins", "archived_on": "2025-06-01"}
+                        {"id": 3, "name": "North Central Admins", "state": "Plateau", "region": "North Central"}
                     ]
                 }
             }
@@ -993,11 +871,84 @@ def get_oldgroups():
         "name": o.name,
         "code": o.code,
         "leader": o.leader,
-        "group": o.group.name if o.group else None,
-        "district": o.group.district.name if o.group and o.group.district else None,
-        "region": o.group.region.name if o.group and o.group.region else None,
-        "state": o.group.state.name if o.group and o.group.state else None
+        "state": o.state.name if o.state else None,
+        "region": o.region.name if o.region else None
+        # REMOVED: group, district references
     } for o in oldgroups])
+
+
+@hierarchy_bp.route("/oldgroups/by_region/<int:region_id>", methods=['GET'])
+@swag_from({
+    "tags": ["Old Groups"],
+    "summary": "Get Old Groups by Region",
+    "description": "Fetch all old groups under a specific region.",
+    "parameters": [
+        {"name": "region_id", "in": "path", "type": "integer", "required": True, "description": "Region ID"}
+    ],
+    "responses": {
+        "200": {
+            "description": "Old groups retrieved successfully",
+            "examples": {
+                "application/json": [
+                    {"id": 1, "name": "Old Group Alpha"},
+                    {"id": 2, "name": "Old Group Beta"}
+                ]
+            }
+        }
+    },
+})
+def oldgroups_by_region(region_id):
+    old_groups = OldGroup.query.filter_by(region_id=region_id).all()
+    return jsonify([og.to_dict() for og in old_groups])
+
+@hierarchy_bp.route("/groups/by_oldgroup/<int:old_group_id>", methods=['GET'])
+@swag_from({
+    "tags": ["Groups"],
+    "summary": "Get Groups by Old Group",
+    "description": "Retrieve all groups under a specific old group.",
+    "parameters": [
+        {"name": "old_group_id", "in": "path", "type": "integer", "required": True, "description": "Old Group ID"}
+    ],
+    "responses": {
+        "200": {
+            "description": "Groups retrieved successfully",
+            "examples": {
+                "application/json": [
+                    {"id": 1, "name": "Group Alpha"},
+                    {"id": 2, "name": "Group Beta"}
+                ]
+            }
+        }
+    },
+})
+def groups_by_oldgroup(old_group_id):
+    groups = Group.query.filter_by(old_group_id=old_group_id).all()
+    return jsonify([g.to_dict() for g in groups])
+
+@hierarchy_bp.route("/districts/by_group/<int:group_id>", methods=['GET'])
+@swag_from({
+    "tags": ["Districts"],
+    "summary": "Get Districts by Group",
+    "description": "Retrieve all districts under a specific group.",
+    "parameters": [
+        {"name": "group_id", "in": "path", "type": "integer", "required": True, "description": "Group ID"}
+    ],
+    "responses": {
+        "200": {
+            "description": "Districts retrieved successfully",
+            "examples": {
+                "application/json": [
+                    {"id": 1, "name": "District East"},
+                    {"id": 2, "name": "District West"}
+                ]
+            }
+        }
+    },
+})
+def districts_by_group(group_id):
+    districts = District.query.filter_by(group_id=group_id).all()
+    return jsonify([d.to_dict() for d in districts])
+
 
 @hierarchy_bp.route("/regions/by_state/<int:state_id>", methods=["GET"])
 @swag_from({
@@ -1097,67 +1048,6 @@ def oldgroups_by_group(group_id):
     return jsonify([og.to_dict() for og in old_groups])
 
 
-# actions - 
-
-# @hierarchy_bp.route("/state/<int:id>", methods=["PUT"])
-# @jwt_required()
-# def update_state(id):
-#     data = request.get_json() or {}
-#     state = State.query.get_or_404(id)
-#     state.name = data.get("name", state.name)
-#     state.code = data.get("code", state.code)
-#     state.leader = data.get("leader", state.leader)
-#     db.session.commit()
-#     return jsonify(state.to_dict()), 200
-
-
-# @hierarchy_bp.route("/state/<int:id>", methods=["DELETE"])
-# @jwt_required()
-# def delete_state(id):
-#     state = State.query.get_or_404(id)
-#     db.session.delete(state)
-#     db.session.commit()
-#     return jsonify({"message": "State deleted"}), 200
-
-
-# @hierarchy_bp.route("/region/<int:id>", methods=["PUT"])
-# @jwt_required()
-# def update_region(id):
-#     data = request.get_json() or {}
-#     region = Region.query.get_or_404(id)
-#     region.name = data.get("name", region.name)
-#     region.code = data.get("code", region.code)
-#     region.leader = data.get("leader", region.leader)
-#     db.session.commit()
-#     return jsonify(region.to_dict()), 200
-
-# @hierarchy_bp.route("/region/<int:id>", methods=["DELETE"])
-# @jwt_required()
-# def delete_region(id):
-#     region = Region.query.get_or_404(id)
-#     db.session.delete(region)
-#     db.session.commit()
-#     return jsonify({"message": "Region deleted"}), 200
-
-# @hierarchy_bp.route("/district/<int:id>", methods=["PUT"])
-# @jwt_required()
-# def update_district(id):
-#     data = request.get_json() or {}
-#     district = District.query.get_or_404(id)
-#     district.name = data.get("name", district.name)
-#     district.code = data.get("code", district.code)
-#     district.leader = data.get("leader", district.leader)
-#     db.session.commit()
-#     return jsonify(district.to_dict()), 200
-
-# @hierarchy_bp.route("/district/<int:id>", methods=["DELETE"])
-# @jwt_required()
-# def delete_district(id):
-#     district = District.query.get_or_404(id)
-#     db.session.delete(district)
-#     db.session.commit()
-#     return jsonify({"message": "District deleted"}), 200
-
 @hierarchy_bp.route("/group/<int:id>", methods=["PUT"])
 @swag_from({
     "tags": ["Groups"],
@@ -1196,31 +1086,3 @@ def update_group(id):
     db.session.commit()
     return jsonify(group.to_dict()), 200
 
-# @hierarchy_bp.route("/group/<int:id>", methods=["DELETE"])
-# @jwt_required()
-# def delete_group(id):
-#     group = Group.query.get_or_404(id)
-#     db.session.delete(group)
-#     db.session.commit()
-#     return jsonify({"message": "Group deleted"}), 200
-
-# @hierarchy_bp.route("/oldgroup/<int:id>", methods=["PUT"])
-# @jwt_required()
-# def update_oldgroup(id):
-#     data = request.get_json() or {}
-#     old_group = OldGroup.query.get_or_404(id)
-#     old_group.name = data.get("name", old_group.name)
-#     old_group.code = data.get("code", old_group.code)
-#     old_group.leader = data.get("leader", old_group.leader)
-#     db.session.commit()
-#     return jsonify(old_group.to_dict()), 200
-
-# @hierarchy_bp.route("/oldgroup/<int:id>", methods=["DELETE"])
-# @jwt_required()
-# def delete_oldgroup(id):
-#     old_group = OldGroup.query.get_or_404(id)
-#     db.session.delete(old_group)
-#     db.session.commit()
-#     return jsonify({"message": "Old Group deleted"}), 200
-
-# # end actions

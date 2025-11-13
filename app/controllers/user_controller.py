@@ -79,7 +79,7 @@ def create_user():
     data = request.get_json()
     current_user = User.query.get(get_jwt_identity())
 
-    # Required
+    # Required fields
     email = data.get("email")
     password = data.get("password")
     if not all([email, password]):
@@ -89,30 +89,31 @@ def create_user():
     if User.query.filter_by(email=email).first():
         return jsonify({"error": "User with this email already exists"}), 400
 
+    # Validate hierarchy based on roles
+    role_ids = data.get("roles", [])
+    roles = Role.query.filter(Role.id.in_(role_ids)).all()
+    
+    # Hierarchy validation
+    validation_error = validate_user_hierarchy(data, roles)
+    if validation_error:
+        return jsonify({"error": validation_error}), 400
+
+    if not can_create_role(current_user, roles):
+        return jsonify({"error": "Insufficient permissions to create this role"}), 403
+
     # Create user
     user = User(
         name=data.get("name"),
         email=email,
-        phone=data.get("phone"),  # ✅ new
+        phone=data.get("phone"),
         is_active=True,
+        state_id=data.get("state_id"),
+        region_id=data.get("region_id"),
+        district_id=data.get("district_id")
     )
     user.set_password(password)
 
-    # Hierarchy links
-    user.state_id = data.get("state_id")
-    user.region_id = data.get("region_id")
-    user.district_id = data.get("district_id")
-
-    # Assign roles
-    role_ids = data.get("roles", [])
-    roles = Role.query.filter(Role.id.in_(role_ids)).all()
-    if not can_create_role(current_user, roles):
-        return jsonify({"error": "Insufficient permissions to create this role"}), 403
-    
-    if role_ids:
-        roles = Role.query.filter(Role.id.in_(role_ids)).all()
-        if not roles:
-            return jsonify({"error": "Invalid roles"}), 400
+    if roles:
         user.roles = roles
 
     db.session.add(user)
@@ -122,6 +123,30 @@ def create_user():
         "message": "User created successfully",
         "user": user.to_dict()
     }), 201
+
+def validate_user_hierarchy(data, roles):
+    """Validate that hierarchy fields match the user's roles"""
+    role_names = [role.name for role in roles]
+    
+    # State Admin should have state_id but can have null region/district
+    if "State Admin" in role_names:
+        if not data.get("state_id"):
+            return "State Admin must have a state_id"
+        # State Admin can have null region_id and district_id (covers entire state)
+    
+    # Regional Admin should have region_id and state_id
+    elif "Regional Admin" in role_names:
+        if not data.get("state_id") or not data.get("region_id"):
+            return "Regional Admin must have state_id and region_id"
+    
+    # District Admin should have all hierarchy fields
+    elif "District Admin" in role_names:
+        if not all([data.get("state_id"), data.get("region_id"), data.get("district_id")]):
+            return "District Admin must have state_id, region_id, and district_id"
+    
+    # Group Admin logic would go here when you implement group-level admin
+    
+    return None
 
 
 def update_user(user_id):

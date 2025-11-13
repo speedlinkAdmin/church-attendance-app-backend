@@ -10,6 +10,7 @@ from flasgger import swag_from
 
 
 attendance_bp = Blueprint("attendance", __name__)
+
 @attendance_bp.route("/attendance", methods=["POST"])
 @jwt_required()
 @swag_from({
@@ -40,7 +41,8 @@ attendance_bp = Blueprint("attendance", __name__)
                     "children_girls": {"type": "integer", "example": 28},
                     "year": {"type": "integer", "example": 2025}
                 },
-                "required": ["service_type", "state_id", "region_id", "district_id", "month", "week", "year"]
+                "required": ["service_type", "state_id", "region_id", "month", "week", "year"]
+                # CHANGED: district_id is no longer required since it's at the bottom of hierarchy
             }
         }
     ],
@@ -63,22 +65,42 @@ attendance_bp = Blueprint("attendance", __name__)
 def create_attendance():
     data = request.get_json() or {}
     
-    # Validate old_group_id exists if provided
+    # Validate hierarchy relationships according to new structure
     if data.get('old_group_id'):
         from ..models import OldGroup
         old_group = OldGroup.query.get(data['old_group_id'])
         if not old_group:
             return jsonify({"error": f"Old Group with ID {data['old_group_id']} does not exist"}), 400
+        # Ensure old_group belongs to the specified region and state
+        if old_group.region_id != data.get('region_id') or old_group.state_id != data.get('state_id'):
+            return jsonify({"error": "Old Group does not belong to the specified region/state"}), 400
     
-    # Validate group_id exists if provided
     if data.get('group_id'):
         from ..models import Group
         group = Group.query.get(data['group_id'])
         if not group:
             return jsonify({"error": f"Group with ID {data['group_id']} does not exist"}), 400
+        # Ensure group belongs to the specified old_group, region and state
+        if (group.old_group_id != data.get('old_group_id') or 
+            group.region_id != data.get('region_id') or 
+            group.state_id != data.get('state_id')):
+            return jsonify({"error": "Group does not belong to the specified hierarchy"}), 400
+    
+    if data.get('district_id'):
+        from ..models import District
+        district = District.query.get(data['district_id'])
+        if not district:
+            return jsonify({"error": f"District with ID {data['district_id']} does not exist"}), 400
+        # Ensure district belongs to the specified group, old_group, region and state
+        if (district.group_id != data.get('group_id') or
+            district.old_group_id != data.get('old_group_id') or
+            district.region_id != data.get('region_id') or
+            district.state_id != data.get('state_id')):
+            return jsonify({"error": "District does not belong to the specified hierarchy"}), 400
     
     attendance = attendance_controller.create_attendance(data)
     return jsonify(attendance.to_dict()), 201
+
 
 # @attendance_bp.route("/attendance", methods=["POST"])
 # @jwt_required()
@@ -125,6 +147,7 @@ def create_attendance():
 #     data = request.get_json() or {}
 #     attendance = attendance_controller.create_attendance(data)
 #     return jsonify(attendance.to_dict()), 201
+
 @attendance_bp.route("/attendance/upload", methods=["POST"])
 @jwt_required()
 @swag_from({
@@ -233,11 +256,12 @@ def get_attendance():
     service_type = request.args.get("service_type")
     year = request.args.get("year")
     month = request.args.get("month")
+    group_id = request.args.get("group_id")
+    old_group_id = request.args.get("old_group_id")
 
-    # Apply filters based on user role - FIXED VERSION
+    # Apply filters based on user role
     state_id = region_id = district_id = None
     
-    # Get user role names from the many-to-many relationship - SAFE ACCESS
     user_role_names = [role.name for role in user.roles] if user.roles else []
     
     if "State Admin" in user_role_names:
@@ -246,13 +270,14 @@ def get_attendance():
         region_id = user.region_id
     elif "District Admin" in user_role_names:
         district_id = user.district_id
-    # Note: "Super Admin" will have access to all records (no filters)
 
     records = attendance_controller.get_all_attendance(
         service_type=service_type,
         state_id=state_id,
         region_id=region_id,
         district_id=district_id,
+        group_id=group_id,
+        old_group_id=old_group_id,
         year=year,
         month=month
     )
