@@ -11,6 +11,38 @@ class State(db.Model):
     def to_dict(self):
         return {"id": self.id, "name": self.name, "code": self.code, "leader": self.leader}
 
+# class Region(db.Model):
+#     __tablename__ = 'regions'
+#     id = db.Column(db.Integer, primary_key=True)
+#     name = db.Column(db.String(100), nullable=False)
+#     code = db.Column(db.String(20), unique=True, nullable=False)
+#     leader = db.Column(db.String(100), nullable=True)
+#     state_id = db.Column(db.Integer, db.ForeignKey('states.id'), nullable=False)
+    
+#     # FIXED: Use back_populates instead of backref to avoid conflicts
+#     # old_groups = db.relationship('OldGroup', back_populates='region', lazy=True)
+#     districts = db.relationship('District', back_populates='region', lazy=True)
+
+#     def to_dict(self):
+#         return {"id": self.id, "name": self.name, "code": self.code, "leader": self.leader, "state_id": self.state_id}
+
+# class OldGroup(db.Model):
+#     __tablename__ = 'old_groups'
+#     id = db.Column(db.Integer, primary_key=True)
+#     name = db.Column(db.String(100), nullable=False)
+#     code = db.Column(db.String(20), unique=True, nullable=False)
+#     leader = db.Column(db.String(100), nullable=True)
+#     state_id = db.Column(db.Integer, db.ForeignKey('states.id'), nullable=False)
+#     region_id = db.Column(db.Integer, db.ForeignKey('regions.id'), nullable=False)
+    
+#     # FIXED: Use back_populates to match Region.old_groups
+#     groups = db.relationship('Group', back_populates='old_group', lazy=True)
+#     state = db.relationship('State', backref='old_state_groups', lazy=True)
+#     region = db.relationship('Region', backref='old_groups', lazy=True)  # FIXED: back_populates
+
+#     def to_dict(self):
+#         return {"id": self.id, "name": self.name, "code": self.code, "leader": self.leader, "state_id": self.state_id, "region_id": self.region_id}
+
 class Region(db.Model):
     __tablename__ = 'regions'
     id = db.Column(db.Integer, primary_key=True)
@@ -19,12 +51,12 @@ class Region(db.Model):
     leader = db.Column(db.String(100), nullable=True)
     state_id = db.Column(db.Integer, db.ForeignKey('states.id'), nullable=False)
     
-    # FIXED: Use back_populates instead of backref to avoid conflicts
-    old_groups = db.relationship('OldGroup', back_populates='region', lazy=True)
+    old_groups = db.relationship('OldGroup', back_populates='region', lazy=True)  # ✅ explicit
     districts = db.relationship('District', back_populates='region', lazy=True)
 
     def to_dict(self):
         return {"id": self.id, "name": self.name, "code": self.code, "leader": self.leader, "state_id": self.state_id}
+
 
 class OldGroup(db.Model):
     __tablename__ = 'old_groups'
@@ -35,13 +67,20 @@ class OldGroup(db.Model):
     state_id = db.Column(db.Integer, db.ForeignKey('states.id'), nullable=False)
     region_id = db.Column(db.Integer, db.ForeignKey('regions.id'), nullable=False)
     
-    # FIXED: Use back_populates to match Region.old_groups
     groups = db.relationship('Group', back_populates='old_group', lazy=True)
     state = db.relationship('State', backref='old_state_groups', lazy=True)
-    region = db.relationship('Region', back_populates='old_groups', lazy=True)  # FIXED: back_populates
+    region = db.relationship('Region', back_populates='old_groups', lazy=True)  # ✅ match Region.old_groups
 
     def to_dict(self):
-        return {"id": self.id, "name": self.name, "code": self.code, "leader": self.leader, "state_id": self.state_id, "region_id": self.region_id}
+        return {
+            "id": self.id,
+            "name": self.name,
+            "code": self.code,
+            "leader": self.leader,
+            "state_id": self.state_id,
+            "region_id": self.region_id
+        }
+
 
 class Group(db.Model):
     __tablename__ = 'groups'
@@ -82,7 +121,7 @@ class District(db.Model):
         return {"id": self.id, "name": self.name, "code": self.code, "leader": self.leader, "state_id": self.state_id, "region_id": self.region_id, "old_group_id": self.old_group_id, "group_id": self.group_id}
 
 
-        
+
 # run on server after push  - 
 # docker exec -it church-backend flask db migrate -m "Restructure hierarchy to State->Region->OldGroups->Groups->Districts"
 

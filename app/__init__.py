@@ -1,6 +1,6 @@
 from flask import Flask
 from config import Config
-from .extensions import db, migrate, jwt, cors
+from .extensions import db, migrate, jwt, cors, CustomJSONEncoder
 from .routes import register_routes
 import logging 
 from flask import jsonify
@@ -9,6 +9,8 @@ from flasgger import Swagger
 def create_app(config_object=None):
     app = Flask(__name__)
     app.config.from_object(config_object or Config)
+
+    app.json_encoder = CustomJSONEncoder
 
     # init extensions
     db.init_app(app)
