@@ -5,6 +5,66 @@ from flask_jwt_extended import get_jwt_identity
 from flask import jsonify
 from app.models import User, State, Region, District, Group
 
+
+from functools import wraps
+from flask import jsonify
+from flask_jwt_extended import get_jwt_identity
+from app.models import User
+
+# -----------------------------
+# ROLE-BASED DECORATOR
+# -----------------------------
+def require_role(allowed_roles):
+    """Decorator to ensure user has at least one allowed role."""
+
+    def wrapper(fn):
+        @wraps(fn)
+        def decorated(*args, **kwargs):
+            user_id = get_jwt_identity()
+            user = User.query.get(user_id)
+
+            if not user:
+                return jsonify({"error": "Invalid user"}), 401
+
+            user_roles = [r.name.lower() for r in user.roles]
+
+            # Check if user has ANY allowed role
+            if not any(role.lower() in user_roles for role in allowed_roles):
+                return jsonify({"error": "You do not have permission for this action"}), 403
+
+            return fn(*args, **kwargs)
+
+        return decorated
+
+    return wrapper
+
+
+# -----------------------------
+# HIERARCHY ACCESS ENFORCEMENT
+# -----------------------------
+def restrict_by_access(user, obj):
+    """Ensure user can only access data inside their assigned hierarchy."""
+
+    # Super Admin = full access
+    role_names = [r.name.lower() for r in user.roles]
+    if "super admin" in role_names:
+        return True
+
+    # Restrict by state
+    if user.state_id and hasattr(obj, "state_id") and obj.state_id != user.state_id:
+        return False
+
+    # Restrict by region
+    if user.region_id and hasattr(obj, "region_id") and obj.region_id != user.region_id:
+        return False
+
+    # Restrict by district
+    if user.district_id and hasattr(obj, "district_id") and obj.district_id != user.district_id:
+        return False
+
+    return True
+
+
 def get_current_user():
     user_id = get_jwt_identity()
     return User.query.get(user_id)
