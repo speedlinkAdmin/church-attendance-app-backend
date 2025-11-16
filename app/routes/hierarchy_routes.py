@@ -245,7 +245,7 @@ def create_region():
         description: Invalid input data
     """
     current_user = User.query.get(get_jwt_identity())
-    if current_user.has_role == "state-admin" and data["state_id"] != current_user.state_id:
+    if current_user.has_role("Super Admin") and data["state_id"] != current_user.state_id:
         return jsonify({"error": "You cannot create a region in another state"}), 403
 
     data = request.get_json()
@@ -524,11 +524,11 @@ def delete_district(id):
                     "group_name": {"type": "string", "example": "Calabar Admins"},
                     "state_id": {"type": "integer", "example": 1},
                     "region_id": {"type": "integer", "example": 2},
-                    # "district_id": {"type": "integer", "example": 3},
                     "leader": {"type": "string", "example": "John Doe"},
-                    "access_level": {"type": "string", "example": "state-admin"}
+                    "access_level": {"type": "string", "example": "state-admin"},
+                    "old_group_id": {"type": "integer", "example": 1, "required": False}
                 },
-                "required": ["group_name", "state_id", "region_id", "district_id"]
+                "required": ["group_name", "state_id", "region_id"]  # Fixed required fields
             },
         }
     ],
@@ -558,35 +558,36 @@ def create_group():
     data = request.get_json() or {}
     current_user = User.query.get(get_jwt_identity())
 
-    # Get user's role names
-    user_role_names = [role.name.lower() for role in current_user.roles]
+    # Debug: Print received data
+    print(f"Received data: {data}")
 
-
+    # Fix 1: Use the correct method call with parentheses
     # STATE ADMIN cannot create group in another state
-    if current_user.has_role == "state-admin" and data["state_id"] != current_user.state_id:
+    if current_user.has_role("state admin") and data.get("state_id") != current_user.state_id:
         return jsonify({"error": "You are not allowed to create groups in another state"}), 403
 
     # REGION ADMIN cannot create group in another region
-    if current_user.has_role == "region-admin" and data["region_id"] != current_user.region_id:
+    if current_user.has_role("region admin") and data.get("region_id") != current_user.region_id:
         return jsonify({"error": "You cannot create groups in another region"}), 403
 
-    
-    required_fields = ["name", "state_id", "region_id", "old_group_id"]
+    # Fix 2: Use correct field names that match the frontend payload
+    required_fields = ["group_name", "state_id", "region_id"]  # Removed old_group_id if not required
     for field in required_fields:
         if not data.get(field):
             return jsonify({"error": f"Missing required field '{field}'"}), 400
 
-    # Auto-generate code
-    name = data["name"]
+    # Fix 3: Use group_name instead of name
+    name = data["group_name"]
     code = f"GRP-{''.join([word[0].upper() for word in name.split()[:2]])}"
 
+    # Fix 4: Create group with correct fields
     group = Group(
-        name=name,
+        name=name,  # Use the group_name as name
         code=code,
         leader=data.get("leader"),
         state_id=data["state_id"],
         region_id=data["region_id"],
-        old_group_id=data["old_group_id"]
+        old_group_id=data.get("old_group_id")  # Use .get() since it might not be provided
     )
 
     db.session.add(group)
@@ -596,6 +597,49 @@ def create_group():
         "message": "Group created",
         "data": group.to_dict()
     }), 201
+
+# def create_group():
+#     data = request.get_json() or {}
+#     current_user = User.query.get(get_jwt_identity())
+
+#     # Get user's role names
+#     user_role_names = [role.name.lower() for role in current_user.roles]
+
+
+#     # STATE ADMIN cannot create group in another state
+#     if current_user.has_role == "state-admin" and data["state_id"] != current_user.state_id:
+#         return jsonify({"error": "You are not allowed to create groups in another state"}), 403
+
+#     # REGION ADMIN cannot create group in another region
+#     if current_user.has_role == "region-admin" and data["region_id"] != current_user.region_id:
+#         return jsonify({"error": "You cannot create groups in another region"}), 403
+
+    
+#     required_fields = ["name", "state_id", "region_id", "old_group_id"]
+#     for field in required_fields:
+#         if not data.get(field):
+#             return jsonify({"error": f"Missing required field '{field}'"}), 400
+
+#     # Auto-generate code
+#     name = data["name"]
+#     code = f"GRP-{''.join([word[0].upper() for word in name.split()[:2]])}"
+
+#     group = Group(
+#         name=name,
+#         code=code,
+#         leader=data.get("leader"),
+#         state_id=data["state_id"],
+#         region_id=data["region_id"],
+#         old_group_id=data["old_group_id"]
+#     )
+
+#     db.session.add(group)
+#     db.session.commit()
+
+#     return jsonify({
+#         "message": "Group created",
+#         "data": group.to_dict()
+#     }), 201
 
 
 @hierarchy_bp.route('/groups', methods=['GET'])
