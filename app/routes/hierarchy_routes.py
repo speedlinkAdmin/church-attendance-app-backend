@@ -684,7 +684,8 @@ def get_groups():
         "leader": g.leader,
         # "district": g.district.name if g.district else None,
         "region": g.region.name if g.region else None,
-        "state": g.state.name if g.state else None
+        "state": g.state.name if g.state else None,
+        "old groups": g.old_group.name if g.old_group else None
     } for g in groups])
 
 
