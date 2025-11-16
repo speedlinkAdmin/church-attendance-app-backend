@@ -6,9 +6,42 @@ import logging
 from flask import jsonify
 from flasgger import Swagger
 
+
+def setup_roles_on_startup(app):
+    """Automatically setup roles when the app starts."""
+    with app.app_context():
+        from .models.user import Role, User
+        from .extensions import db
+        
+        # Check if setup is already done
+        if Role.query.filter_by(name='Super Admin').first():
+            return  # Setup already done
+        
+        print("Setting up roles...")
+        
+        # Create roles
+        roles_data = {
+            "Super Admin": "Full system administrator with access to everything",
+            "State Admin": "Administrator for a specific state", 
+            "Region Admin": "Administrator for a specific region",
+            "District Admin": "Administrator for a specific district",
+            "Group Admin": "Administrator for a specific group", 
+            "Viewer": "Read-only access"
+        }
+        
+        for role_name, description in roles_data.items():
+            role = Role(name=role_name, description=description)
+            db.session.add(role)
+        
+        db.session.commit()
+        print("Roles setup complete!")
+
+
 def create_app(config_object=None):
     app = Flask(__name__)
     app.config.from_object(config_object or Config)
+
+    setup_roles_on_startup(app)
 
     app.json_encoder = CustomJSONProvider(app)
 
