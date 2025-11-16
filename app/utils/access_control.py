@@ -15,8 +15,6 @@ from app.models import User
 # ROLE-BASED DECORATOR
 # -----------------------------
 def require_role(allowed_roles):
-    """Decorator to ensure user has at least one allowed role."""
-
     def wrapper(fn):
         @wraps(fn)
         def decorated(*args, **kwargs):
@@ -26,17 +24,44 @@ def require_role(allowed_roles):
             if not user:
                 return jsonify({"error": "Invalid user"}), 401
 
-            user_roles = [r.name.lower() for r in user.roles]
+            # Normalize role names: convert to lowercase and replace hyphens with spaces
+            def normalize_role_name(role_name):
+                return role_name.lower().replace('-', ' ').strip()
+            
+            user_role_names = {normalize_role_name(r.name) for r in user.roles}
+            allowed_role_names = {normalize_role_name(role) for role in allowed_roles}
 
-            # Check if user has ANY allowed role
-            if not any(role.lower() in user_roles for role in allowed_roles):
+            if not user_role_names.intersection(allowed_role_names):
                 return jsonify({"error": "You do not have permission for this action"}), 403
 
             return fn(*args, **kwargs)
-
         return decorated
-
     return wrapper
+
+    
+# def require_role(allowed_roles):
+#     """Decorator to ensure user has at least one allowed role."""
+
+#     def wrapper(fn):
+#         @wraps(fn)
+#         def decorated(*args, **kwargs):
+#             user_id = get_jwt_identity()
+#             user = User.query.get(user_id)
+
+#             if not user:
+#                 return jsonify({"error": "Invalid user"}), 401
+
+#             user_roles = [r.name.lower() for r in user.roles]
+
+#             # Check if user has ANY allowed role
+#             if not any(role.lower() in user_roles for role in allowed_roles):
+#                 return jsonify({"error": "You do not have permission for this action"}), 403
+
+#             return fn(*args, **kwargs)
+
+#         return decorated
+
+#     return wrapper
 
 
 # -----------------------------
@@ -84,7 +109,7 @@ def restrict_by_access(query, user):
         print(f"Error in restrict_by_access: {e}")
         return query.filter_by(id=None)  # FIXED: Use filter_by(id=None)
     
-    
+
 # def restrict_by_access(user, obj):
 #     """Ensure user can only access data inside their assigned hierarchy."""
 
