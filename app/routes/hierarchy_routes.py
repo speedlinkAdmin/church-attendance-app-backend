@@ -245,7 +245,7 @@ def create_region():
         description: Invalid input data
     """
     current_user = User.query.get(get_jwt_identity())
-    if current_user.role == "state-admin" and data["state_id"] != current_user.state_id:
+    if current_user.has_role == "state-admin" and data["state_id"] != current_user.state_id:
         return jsonify({"error": "You cannot create a region in another state"}), 403
 
     data = request.get_json()

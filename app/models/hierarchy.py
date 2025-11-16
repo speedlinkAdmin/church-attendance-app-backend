@@ -7,7 +7,7 @@ class State(db.Model):
     __tablename__ = 'states'
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
-    code = db.Column(db.String(20), unique=True, nullable=False)
+    code = db.Column(db.String(20),  nullable=False)
     leader = db.Column(db.String(100), nullable=True)
 
     # Relationships
@@ -27,7 +27,7 @@ class Region(db.Model):
     __tablename__ = 'regions'
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
-    code = db.Column(db.String(20), unique=True, nullable=False)
+    code = db.Column(db.String(20), nullable=False)
     leader = db.Column(db.String(100), nullable=True)
     state_id = db.Column(db.Integer, db.ForeignKey('states.id'), nullable=False)
 
@@ -48,7 +48,7 @@ class OldGroup(db.Model):
     __tablename__ = 'old_groups'
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
-    code = db.Column(db.String(20), unique=True, nullable=False)
+    code = db.Column(db.String(20), nullable=False)
     leader = db.Column(db.String(100), nullable=True)
     state_id = db.Column(db.Integer, db.ForeignKey('states.id'), nullable=False)
     region_id = db.Column(db.Integer, db.ForeignKey('regions.id'), nullable=False)
@@ -77,7 +77,7 @@ class Group(db.Model):
     __tablename__ = 'groups'
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
-    code = db.Column(db.String(20), unique=True, nullable=False)
+    code = db.Column(db.String(20), nullable=False)
     leader = db.Column(db.String(100), nullable=True)
     state_id = db.Column(db.Integer, db.ForeignKey('states.id'), nullable=False)
     region_id = db.Column(db.Integer, db.ForeignKey('regions.id'), nullable=False)
@@ -108,7 +108,7 @@ class District(db.Model):
     __tablename__ = 'districts'
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
-    code = db.Column(db.String(20), unique=True, nullable=False)
+    code = db.Column(db.String(20),  nullable=False)
     leader = db.Column(db.String(100), nullable=True)
     state_id = db.Column(db.Integer, db.ForeignKey('states.id'), nullable=False)
     region_id = db.Column(db.Integer, db.ForeignKey('regions.id'), nullable=False)

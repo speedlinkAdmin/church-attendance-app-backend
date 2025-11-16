@@ -38,7 +38,7 @@ def require_role(allowed_roles):
         return decorated
     return wrapper
 
-    
+
 # def require_role(allowed_roles):
 #     """Decorator to ensure user has at least one allowed role."""
 
@@ -85,11 +85,11 @@ def restrict_by_access(query, user):
         # etc.
         
         # Super Admin - no restrictions (maps to "admin")
-        if "admin" in role_names:
+        if "Super Admin" in role_names:
             return query
         
         # State Admin - restrict to their state (maps to "state_manager")
-        elif "state_manager" in role_names and user.state_id:
+        elif "state_admin" in role_names and user.state_id:
             return query.filter_by(state_id=user.state_id)
         
         # Regional Admin - restrict to their region
