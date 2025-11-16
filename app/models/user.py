@@ -36,6 +36,10 @@ class User(db.Model):
 
     def check_password(self, password: str) -> bool:
         return check_password_hash(self.password_hash, password)
+    
+    def has_role(self, role_name):
+        """Check if user has a specific role (case-insensitive)"""
+        return any(role.name.lower() == role_name.lower() for role in self.roles)
 
      # ----- ACCESS LEVEL -----
     def access_level(self):

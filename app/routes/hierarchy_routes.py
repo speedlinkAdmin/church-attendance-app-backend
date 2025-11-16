@@ -558,12 +558,16 @@ def create_group():
     data = request.get_json() or {}
     current_user = User.query.get(get_jwt_identity())
 
+    # Get user's role names
+    user_role_names = [role.name.lower() for role in current_user.roles]
+
+
     # STATE ADMIN cannot create group in another state
-    if current_user.role == "state-admin" and data["state_id"] != current_user.state_id:
+    if current_user.has_role == "state-admin" and data["state_id"] != current_user.state_id:
         return jsonify({"error": "You are not allowed to create groups in another state"}), 403
 
     # REGION ADMIN cannot create group in another region
-    if current_user.role == "region-admin" and data["region_id"] != current_user.region_id:
+    if current_user.has_role == "region-admin" and data["region_id"] != current_user.region_id:
         return jsonify({"error": "You cannot create groups in another region"}), 403
 
     
