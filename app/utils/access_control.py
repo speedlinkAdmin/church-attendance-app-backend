@@ -44,30 +44,47 @@ def require_role(allowed_roles):
 # -----------------------------
 
 def restrict_by_access(query, user):
-    # Check if user is actually a User object or a Query object
-    if hasattr(user, 'roles'):
-        # It's a User object - proceed normally
+    """
+    Restrict database query based on user's access level and hierarchy position.
+    """
+    # Safety check - if user is not a User object, return query unchanged
+    if not user or not hasattr(user, 'roles'):
+        return query
+    
+    try:
         role_names = [r.name.lower() for r in user.roles]
         
-        if "super admin" in role_names:
-            return query  # Super Admin sees everything
+        # Map your actual role names to expected role names
+        # "admin" -> "super admin"
+        # "state_manager" -> "state admin" 
+        # etc.
         
-        elif "state admin" in role_names and user.state_id:
+        # Super Admin - no restrictions (maps to "admin")
+        if "admin" in role_names:
+            return query
+        
+        # State Admin - restrict to their state (maps to "state_manager")
+        elif "state_manager" in role_names and user.state_id:
             return query.filter_by(state_id=user.state_id)
         
-        elif "regional admin" in role_names and user.region_id:
+        # Regional Admin - restrict to their region
+        elif "region_admin" in role_names and user.region_id:
             return query.filter_by(region_id=user.region_id)
         
-        elif "district admin" in role_names and user.district_id:
+        # District Admin - restrict to their district
+        elif "district_admin" in role_names and user.district_id:
             return query.filter_by(district_id=user.district_id)
         
+        # No matching role or missing hierarchy data - return empty query
         else:
-            return query.none()  # No access
+            return query.filter_by(id=None)  # FIXED: Use filter_by(id=None) instead of .none()
+            
+    except Exception as e:
+        # Log the error but return empty query to be safe
+        print(f"Error in restrict_by_access: {e}")
+        return query.filter_by(id=None)  # FIXED: Use filter_by(id=None)
     
-    else:
-        # If user is not a User object (might be Query or something else),
-        # return the query unchanged for now
-        return query
+    
 # def restrict_by_access(user, obj):
 #     """Ensure user can only access data inside their assigned hierarchy."""
 
