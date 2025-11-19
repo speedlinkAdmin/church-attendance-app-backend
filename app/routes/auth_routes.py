@@ -4,6 +4,7 @@ from app.controllers.user_controller import can_create_role
 from ..extensions import db
 from ..models.user import User, Role, Permission
 from flask_jwt_extended import create_access_token, create_refresh_token, jwt_required, get_jwt_identity
+from flasgger import swag_from
 
 auth_bp = Blueprint("auth", __name__)
 
@@ -62,6 +63,26 @@ def setup_admin():
 
 @auth_bp.route("/available-roles", methods=["GET"])
 @jwt_required()
+@swag_from({
+    "tags": ["Roles"],
+    "summary": "Get assignable roles",
+    "description": "Returns the list of roles that the authenticated user is allowed to assign to new users.",
+    "security": [{"BearerAuth": []}],
+    "responses": {
+        200: {
+            "description": "List of assignable roles",
+            "examples": {
+                "application/json": [
+                    {
+                        "id": 1,
+                        "name": "district admin",
+                        "description": "Can manage district groups and attendance"
+                    }
+                ]
+            }
+        }
+    }
+})
 def get_available_roles():
     """Get roles that the current user can assign to new users."""
     current_user_id = get_jwt_identity()

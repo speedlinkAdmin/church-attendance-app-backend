@@ -611,7 +611,7 @@ def delete_district(id):
                         "region_id": 2,
                         # "district_id": 3,
                         "leader": "John Doe",
-                        "access_level": "state-admin"
+                        # "access_level": "state-admin"
                     }
                 }
             },

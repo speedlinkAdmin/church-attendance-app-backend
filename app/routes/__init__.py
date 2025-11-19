@@ -5,6 +5,8 @@ from .user_routes import user_bp
 from .attendance_routes import attendance_bp
 from .youth_attendance_routes import ya_bp
 from .dashboard_routes import dashboard_bp
+from .admin_routes import admin_bp
+from .attendance_monitor_routes import monitor_bp
 
 
 def register_routes(app):
@@ -15,3 +17,5 @@ def register_routes(app):
     app.register_blueprint(attendance_bp, url_prefix="/attendance")
     app.register_blueprint(ya_bp, url_prefix="/youth-attendance")
     app.register_blueprint(dashboard_bp, url_prefix="/dashboard")
+    app.register_blueprint(admin_bp, url_prefix="/admin")
+    app.register_blueprint(monitor_bp, url_prefix="/attendance-monitor")

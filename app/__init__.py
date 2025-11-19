@@ -5,7 +5,7 @@ from .routes import register_routes
 import logging 
 from flask import jsonify
 from flasgger import Swagger
-
+from app.tasks.scheduler import start_scheduler
 
 def setup_roles_on_startup(app):
     """Automatically setup roles when the app starts."""
@@ -54,6 +54,7 @@ def create_app(config_object=None):
     app.json_encoder = CustomJSONProvider(app)
 
     setup_roles_on_startup(app)
+    start_scheduler()
 
 
      # Initialize Swagger
