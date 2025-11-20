@@ -3,11 +3,12 @@ from app.controllers.attendance_monitor_controller import get_attendance_monitor
 from app.controllers.reminder_controller import send_manual_reminders, send_targeted_reminders
 from app.utils.access_control import require_role
 from flasgger import swag_from
-
+from flask_jwt_extended import jwt_required
 
 monitor_bp = Blueprint("monitor_bp", __name__)
 
 @monitor_bp.get("/monitor/attendance")
+@jwt_required()
 @require_role(["super admin", "state admin"])
 @swag_from({
     "tags": ["Attendance Monitoring"],
@@ -42,6 +43,7 @@ def attendance_monitor():
 
 
 @monitor_bp.post("/monitor/remind/<entity_type>")
+@jwt_required()
 @require_role(["super admin"])
 @swag_from({
     "tags": ["Reminders"],
@@ -75,6 +77,7 @@ def manual_remind(entity_type):
 
 # NEW: Target-specific reminder
 @monitor_bp.post("/monitor/remind/<entity_type>/<entity_id>")
+@jwt_required()
 @require_role(["super admin"])
 @swag_from({
     "tags": ["Attendance Reminders"],
