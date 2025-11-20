@@ -11,6 +11,8 @@ def send_manual_reminders(entity_type):
 
     failed_list = []
 
+    
+
     users = User.query.all()
 
     for user in users:
@@ -20,7 +22,7 @@ def send_manual_reminders(entity_type):
             send_email(
                 to=user.email,
                 subject="Attendance Reminder",
-                body=f"Dear {user.first_name}, you have not submitted attendance for week {last_week}. Kindly update it."
+                body=f"Dear {user.name or user.email}, you have not submitted attendance for week {last_week}. Kindly update it."
             )
             failed_list.append(user.email)
 
