@@ -5,7 +5,7 @@ import importlib
 from app.utils.excel_importer import import_hierarchy_from_excel
 # Force reload the module
 # importlib.reload(utils.excel_importer)
-from app.utils.excel_importer_new import import_hierarchy_from_excel_new as import_hierarchy_from_excel
+from app.utils.excel_importer_new import import_hierarchy_from_excel
 from app.utils.access_control import require_role
 import os
 import tempfile

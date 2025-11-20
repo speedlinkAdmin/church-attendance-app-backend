@@ -76,36 +76,41 @@ def manual_remind(entity_type):
 # NEW: Target-specific reminder
 @monitor_bp.post("/monitor/remind/<entity_type>/<entity_id>")
 @require_role(["super admin"])
+@swag_from({
+    "tags": ["Attendance Reminders"],
+    "summary": "Send attendance reminder to a specific entity",
+    "description": "Sends a reminder email to all admins belonging to a specific entity (state, region, district, group, or old_group).",
+    "security": [{"BearerAuth": []}],
+    "parameters": [
+        {
+            "name": "entity_type",
+            "in": "path",
+            "required": True,
+            "type": "string",
+            "enum": ["state", "region", "district", "group", "old_group"],
+            "description": "The entity level to target."
+        },
+        {
+            "name": "entity_id",
+            "in": "path",
+            "required": True,
+            "type": "integer",
+            "description": "ID of the specific entity."
+        }
+    ],
+    "responses": {
+        200: {
+            "description": "Reminder emails sent successfully",
+            "examples": {
+                "application/json": {
+                    "sent_to": ["admin1@gmail.com", "admin2@gmail.com"]
+                }
+            }
+        },
+        400: {"description": "Invalid entity type or entity not found"},
+    }
+})
 def targeted_remind(entity_type, entity_id):
-    """
-    Send Attendance Reminder to a Specific Entity
-    ---
-    tags:
-      - Attendance Reminders
-    parameters:
-      - name: entity_type
-        in: path
-        type: string
-        required: true
-        description: Entity type to send reminder to. Options: state, region, district, group, old_group
-      - name: entity_id
-        in: path
-        type: integer
-        required: true
-        description: ID of the specific entity
-    responses:
-      200:
-        description: Returns the list of emails reminders were sent to
-        schema:
-          type: object
-          properties:
-            sent_to:
-              type: array
-              items:
-                type: string
-      400:
-        description: Invalid entity type or entity not found
-    """
     valid = ["state", "region", "district", "group", "old_group"]
     if entity_type not in valid:
         return jsonify({"error": "Invalid entity type"}), 400
