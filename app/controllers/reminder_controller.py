@@ -20,10 +20,15 @@ def send_manual_reminders(entity_type):
 
         if last_week == 0 or get_attendance_status(last_week) != "green":
             send_email(
-                to=user.email,
+                to_email=user.email,
                 subject="Attendance Reminder",
-                body=f"Dear {user.name or user.email}, you have not submitted attendance for week {last_week}. Kindly update it."
+                template_name="attendance_reminder",
+                context={
+                    "name": user.name or user.email,
+                    "week": last_week
+                }
             )
+
             failed_list.append(user.email)
 
     return failed_list

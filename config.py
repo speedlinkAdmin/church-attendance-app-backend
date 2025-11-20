@@ -13,3 +13,9 @@ class Config:
     # token expiry seconds (integers)
     JWT_ACCESS_TOKEN_EXPIRES = int(os.environ.get("ACCESS_EXPIRES", 3600))
     JWT_REFRESH_TOKEN_EXPIRES = int(os.environ.get("REFRESH_EXPIRES", 86400))
+    SMTP_SERVER = os.environ.get("SMTP_SERVER")
+    SMTP_PORT = int(os.environ.get("SMTP_PORT", 587))
+    EMAIL_USER = os.environ.get("EMAIL_USER")
+    EMAIL_PASSWORD = os.environ.get("EMAIL_PASSWORD")
+    SUPPORT_EMAIL = os.environ.get("SUPPORT_EMAIL")
+
