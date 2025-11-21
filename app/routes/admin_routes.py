@@ -23,11 +23,12 @@ def import_hierarchy():
     if not state_name:
         return jsonify({"error": "State name is required"}), 400
 
-    # DEBUG: Check which function we're actually using
-    print(f"=== DEBUG: Starting import ===")
-    print(f"Import function: {import_hierarchy_from_excel}")
-    print(f"Import function location: {import_hierarchy_from_excel.__module__}")
-    print(f"Import function file: {import_hierarchy_from_excel.__code__.co_filename}")
+
+    # # DEBUG: Check which function we're actually using
+    # print(f"=== DEBUG: Starting import ===")
+    # print(f"Import function: {import_hierarchy_from_excel}")
+    # print(f"Import function location: {import_hierarchy_from_excel.__module__}")
+    # print(f"Import function file: {import_hierarchy_from_excel.__code__.co_filename}")
 
     # Create temporary file
     with tempfile.NamedTemporaryFile(delete=False, suffix='.xlsx') as tmp_file:
@@ -61,77 +62,3 @@ def import_hierarchy():
             pass
             
         return jsonify({"error": str(e)}), 400
-    
-
-# @admin_bp.post("/import-hierarchy")
-# # @require_role(["super admin"])
-# def import_hierarchy():
-#     """
-#     Import Church Hierarchy from Excel
-#     ---
-#     tags:
-#       - Admin
-#     consumes:
-#       - multipart/form-data
-#     parameters:
-#       - name: file
-#         in: formData
-#         type: file
-#         required: true
-#         description: Excel file containing hierarchy data
-#       - name: state_name
-#         in: formData
-#         type: string
-#         required: true
-#         description: State name for this data (e.g. "Rivers Central")
-#     responses:
-#       200:
-#         description: Success message
-#         schema:
-#           type: object
-#           properties:
-#             message:
-#               type: string
-#       400:
-#         description: Error in file upload or parsing
-#     """
-#     if "file" not in request.files:
-#         return jsonify({"error": "No file provided"}), 400
-
-#     file = request.files["file"]
-#     state_name = request.form.get("state_name")
-#     if not state_name:
-#         return jsonify({"error": "State name is required"}), 400
-    
-#     # DEBUG: Check which function we're actually using
-#     print(f"Import function location: {import_hierarchy_from_excel.__module__}")
-#     print(f"Import function file: {import_hierarchy_from_excel.__code__.co_filename}")
-
-#     # FIX: Use tempfile for cross-platform compatibility
-#     filename = secure_filename(file.filename)
-    
-#     # Create a temporary file that works on both Windows and Linux
-#     with tempfile.NamedTemporaryFile(delete=False, suffix='.xlsx') as tmp_file:
-#         file_path = tmp_file.name
-#         file.save(file_path)
-
-#     try:
-#         result = import_hierarchy_from_excel(file_path, state_name)
-        
-#         # Clean up the temporary file
-#         try:
-#             os.unlink(file_path)
-#         except:
-#             pass  # Ignore cleanup errors
-            
-#         return jsonify(result), 200
-        
-#     except Exception as e:
-#         # Clean up the temporary file even on error
-#         try:
-#             os.unlink(file_path)
-#         except:
-#             pass
-            
-#         return jsonify({"error": str(e)}), 400
-   

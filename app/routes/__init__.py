@@ -7,7 +7,7 @@ from .youth_attendance_routes import ya_bp
 from .dashboard_routes import dashboard_bp
 from .admin_routes import admin_bp
 from .attendance_monitor_routes import monitor_bp
-
+from .profile_routes import profile_bp
 
 def register_routes(app):
     app.register_blueprint(auth_bp, url_prefix="/auth")
@@ -19,3 +19,4 @@ def register_routes(app):
     app.register_blueprint(dashboard_bp, url_prefix="/dashboard")
     app.register_blueprint(admin_bp, url_prefix="/admin")
     app.register_blueprint(monitor_bp, url_prefix="/attendance-monitor")
+    app.register_blueprint(profile_bp)
