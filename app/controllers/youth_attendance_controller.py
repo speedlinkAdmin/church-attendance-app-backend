@@ -1,11 +1,16 @@
 from ..extensions import db
 from ..models import YouthAttendance
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 def create_youth_attendance(data):
+    logger.info(f"Creating youth attendance with data: {data}")
     obj = YouthAttendance(**data)
     db.session.add(obj)
     db.session.commit()
+    logger.info(f"Created youth attendance record ID: {obj.id}")
     return obj
 
 
