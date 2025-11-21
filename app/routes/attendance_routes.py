@@ -63,90 +63,124 @@ attendance_bp = Blueprint("attendance", __name__)
     }
 })
 def create_attendance():
-    data = request.get_json() or {}
-    
-    # Validate hierarchy relationships according to new structure
-    if data.get('old_group_id'):
-        from ..models import OldGroup
-        old_group = OldGroup.query.get(data['old_group_id'])
-        if not old_group:
-            return jsonify({"error": f"Old Group with ID {data['old_group_id']} does not exist"}), 400
-        # Ensure old_group belongs to the specified region and state
-        if old_group.region_id != data.get('region_id') or old_group.state_id != data.get('state_id'):
-            return jsonify({"error": "Old Group does not belong to the specified region/state"}), 400
-    
-    if data.get('group_id'):
-        from ..models import Group
-        group = Group.query.get(data['group_id'])
-        if not group:
-            return jsonify({"error": f"Group with ID {data['group_id']} does not exist"}), 400
-        # Ensure group belongs to the specified old_group, region and state
-        if (group.old_group_id != data.get('old_group_id') or 
-            group.region_id != data.get('region_id') or 
-            group.state_id != data.get('state_id')):
-            return jsonify({"error": "Group does not belong to the specified hierarchy"}), 400
-    
-    if data.get('district_id'):
-        from ..models import District
-        district = District.query.get(data['district_id'])
-        if not district:
-            return jsonify({"error": f"District with ID {data['district_id']} does not exist"}), 400
-        # Ensure district belongs to the specified group, old_group, region and state
-        if (district.group_id != data.get('group_id') or
-            district.old_group_id != data.get('old_group_id') or
-            district.region_id != data.get('region_id') or
-            district.state_id != data.get('state_id')):
-            return jsonify({"error": "District does not belong to the specified hierarchy"}), 400
-    
-    attendance = attendance_controller.create_attendance(data)
-    return jsonify(attendance.to_dict()), 201
+    try:
+        data = request.get_json() or {}
+        print(f"🔍 Received attendance data: {data}")
+        
+        # Check if we're getting any data at all
+        if not data:
+            return jsonify({"error": "No JSON data received"}), 400
+        
+        # Validate required fields
+        required_fields = ["service_type", "state_id", "region_id", "month", "week", "year"]
+        missing_fields = [field for field in required_fields if field not in data or data[field] is None]
+        
+        if missing_fields:
+            print(f"❌ Missing required fields: {missing_fields}")
+            return jsonify({"error": f"Missing required fields: {', '.join(missing_fields)}"}), 400
+        
+        # Log the incoming data for debugging
+        print(f"📝 Processing attendance for: State={data.get('state_id')}, Region={data.get('region_id')}, "
+              f"OldGroup={data.get('old_group_id')}, Group={data.get('group_id')}, District={data.get('district_id')}")
+        
+        # Validate hierarchy relationships with better error messages
+        validation_errors = []
+        
+        if data.get('old_group_id'):
+            from ..models import OldGroup
+            old_group = OldGroup.query.get(data['old_group_id'])
+            if not old_group:
+                validation_errors.append(f"Old Group with ID {data['old_group_id']} does not exist")
+            elif old_group.region_id != data.get('region_id') or old_group.state_id != data.get('state_id'):
+                validation_errors.append(f"Old Group {data['old_group_id']} belongs to State {old_group.state_id}, Region {old_group.region_id} but received State {data.get('state_id')}, Region {data.get('region_id')}")
+        
+        if data.get('group_id'):
+            from ..models import Group
+            group = Group.query.get(data['group_id'])
+            if not group:
+                validation_errors.append(f"Group with ID {data['group_id']} does not exist")
+            else:
+                if group.old_group_id != data.get('old_group_id'):
+                    validation_errors.append(f"Group {data['group_id']} belongs to OldGroup {group.old_group_id} but received {data.get('old_group_id')}")
+                if group.region_id != data.get('region_id'):
+                    validation_errors.append(f"Group {data['group_id']} belongs to Region {group.region_id} but received {data.get('region_id')}")
+                if group.state_id != data.get('state_id'):
+                    validation_errors.append(f"Group {data['group_id']} belongs to State {group.state_id} but received {data.get('state_id')}")
+        
+        if data.get('district_id'):
+            from ..models import District
+            district = District.query.get(data['district_id'])
+            if not district:
+                validation_errors.append(f"District with ID {data['district_id']} does not exist")
+            else:
+                if district.group_id != data.get('group_id'):
+                    validation_errors.append(f"District {data['district_id']} belongs to Group {district.group_id} but received {data.get('group_id')}")
+                if district.old_group_id != data.get('old_group_id'):
+                    validation_errors.append(f"District {data['district_id']} belongs to OldGroup {district.old_group_id} but received {data.get('old_group_id')}")
+                if district.region_id != data.get('region_id'):
+                    validation_errors.append(f"District {data['district_id']} belongs to Region {district.region_id} but received {data.get('region_id')}")
+                if district.state_id != data.get('state_id'):
+                    validation_errors.append(f"District {data['district_id']} belongs to State {district.state_id} but received {data.get('state_id')}")
+        
+        if validation_errors:
+            print(f"❌ Validation errors: {validation_errors}")
+            return jsonify({"error": "Hierarchy validation failed", "details": validation_errors}), 400
+        
+        # Create attendance record
+        print("✅ All validations passed, creating attendance record...")
+        attendance = attendance_controller.create_attendance(data)
+        
+        print(f"✅ Attendance record created successfully: ID {attendance.id}")
+        return jsonify(attendance.to_dict()), 201
+        
+    except Exception as e:
+        print(f"❌ Unexpected error in create_attendance: {str(e)}")
+        import traceback
+        print(f"Traceback: {traceback.format_exc()}")
+        return jsonify({"error": f"Internal server error: {str(e)}"}), 500
 
-
-# @attendance_bp.route("/attendance", methods=["POST"])
-# @jwt_required()
-# @swag_from({
-#     "tags": ["Attendance"],
-#     "summary": "Create attendance record",
-#     "description": "Creates a new attendance record for a specified service type and hierarchy level (state, region, district, etc.).",
-#     "parameters": [
-#         {
-#             "name": "body",
-#             "in": "body",
-#             "required": True,
-#             "schema": {
-#                 "properties": {
-#                     "service_type": {"type": "string", "example": "Sunday Service"},
-#                     "state_id": {"type": "integer", "example": 1},
-#                     "region_id": {"type": "integer", "example": 2},
-#                     "district_id": {"type": "integer", "example": 3},
-#                     "group_id": {"type": "integer", "example": 4},
-#                     "old_group_id": {"type": "integer", "example": 5},
-#                     "month": {"type": "string", "example": "October"},
-#                     "week": {"type": "integer", "example": 1},
-#                     "men": {"type": "integer", "example": 45},
-#                     "women": {"type": "integer", "example": 60},
-#                     "youth_boys": {"type": "integer", "example": 20},
-#                     "youth_girls": {"type": "integer", "example": 25},
-#                     "children_boys": {"type": "integer", "example": 30},
-#                     "children_girls": {"type": "integer", "example": 28},
-#                     "year": {"type": "integer", "example": 2025},
-#                 },
-#                 "required": ["service_type", "state_id", "region_id", "district_id", "month", "week", "year"]
-#             }
-#         }
-#     ],
-#     "responses": {
-#         "201": {
-#             "description": "Attendance record created successfully",
-#             "examples": {"application/json": {"id": 1, "service_type": "Sunday Service", "month": "October"}}
-#         },
-#         "400": {"description": "Invalid data provided"}
-#     }
-# })
 # def create_attendance():
 #     data = request.get_json() or {}
+    
+#     # Validate hierarchy relationships according to new structure
+#     if data.get('old_group_id'):
+#         from ..models import OldGroup
+#         old_group = OldGroup.query.get(data['old_group_id'])
+#         if not old_group:
+#             return jsonify({"error": f"Old Group with ID {data['old_group_id']} does not exist"}), 400
+#         # Ensure old_group belongs to the specified region and state
+#         if old_group.region_id != data.get('region_id') or old_group.state_id != data.get('state_id'):
+#             return jsonify({"error": "Old Group does not belong to the specified region/state"}), 400
+    
+#     if data.get('group_id'):
+#         from ..models import Group
+#         group = Group.query.get(data['group_id'])
+#         if not group:
+#             return jsonify({"error": f"Group with ID {data['group_id']} does not exist"}), 400
+#         # Ensure group belongs to the specified old_group, region and state
+#         if (group.old_group_id != data.get('old_group_id') or 
+#             group.region_id != data.get('region_id') or 
+#             group.state_id != data.get('state_id')):
+#             return jsonify({"error": "Group does not belong to the specified hierarchy"}), 400
+    
+#     if data.get('district_id'):
+#         from ..models import District
+#         district = District.query.get(data['district_id'])
+#         if not district:
+#             return jsonify({"error": f"District with ID {data['district_id']} does not exist"}), 400
+#         # Ensure district belongs to the specified group, old_group, region and state
+#         if (district.group_id != data.get('group_id') or
+#             district.old_group_id != data.get('old_group_id') or
+#             district.region_id != data.get('region_id') or
+#             district.state_id != data.get('state_id')):
+#             return jsonify({"error": "District does not belong to the specified hierarchy"}), 400
+    
 #     attendance = attendance_controller.create_attendance(data)
 #     return jsonify(attendance.to_dict()), 201
+
+
+
+
 
 @attendance_bp.route("/attendance/upload", methods=["POST"])
 @jwt_required()

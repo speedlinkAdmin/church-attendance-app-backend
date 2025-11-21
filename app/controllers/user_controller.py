@@ -271,5 +271,46 @@ def list_users():
           items:
             type: object
     """
-    users = User.query.all()
-    return jsonify([u.to_dict() for u in users]), 200
+    # Pagination parameters
+    page = request.args.get('page', 1, type=int)
+    per_page = min(request.args.get('per_page', 50, type=int), 100)  # Max 100 per page
+    
+    # Optimized query with eager loading
+    users_query = User.query.options(db.joinedload(User.roles))
+    
+    paginated_users = users_query.paginate(
+        page=page, 
+        per_page=per_page, 
+        error_out=False
+    )
+    
+    # Optimized serialization
+    users_data = []
+    for user in paginated_users.items:
+        users_data.append({
+            'id': user.id,
+            'email': user.email,
+            'name': user.name,
+            'phone': user.phone,
+            'is_active': user.is_active,
+            'state_id': user.state_id,
+            'region_id': user.region_id,
+            'district_id': user.district_id,
+            'roles': [role.name for role in user.roles],
+            'access_level': user.access_level()
+        })
+    
+    return jsonify({
+        'users': users_data,
+        'pagination': {
+            'page': page,
+            'per_page': per_page,
+            'total': paginated_users.total,
+            'pages': paginated_users.pages,
+            'has_next': paginated_users.has_next,
+            'has_prev': paginated_users.has_prev
+        }
+    }), 200
+
+    # users = User.query.all()
+    # return jsonify([u.to_dict() for u in users]), 200
