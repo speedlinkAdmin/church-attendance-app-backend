@@ -161,56 +161,63 @@ def list_youth():
     year = request.args.get("year", type=int)
     month = request.args.get("month")
 
-    # Debug: Print user info
-    print(f"🔍 User ID: {user.id}, Roles: {[r.name for r in user.roles]}")
-    print(f"🔍 User hierarchy - State: {user.state_id}, Region: {user.region_id}, District: {user.district_id}")
+    print(f"🔍 User: {user.id}, Roles: {[r.name for r in user.roles]}")
 
-    # Fix role name checks - use "Region Admin" instead of "Regional Admin"
-    state_id = region_id = district_id = None
-    user_role_names = [role.name for role in user.roles]
-    
-    print(f"🔍 User roles: {user_role_names}")
-    
-    if "Super Admin" in user_role_names:
-        # Super Admin can see everything - no filters
-        print("🔍 Super Admin - no filters applied")
-        pass
-    elif "State Admin" in user_role_names:
-        state_id = user.state_id
-        print(f"🔍 State Admin filter - state_id: {state_id}")
-    elif "Region Admin" in user_role_names:  # FIXED: Changed from "Regional Admin"
-        state_id = user.state_id
-        region_id = user.region_id
-        print(f"🔍 Region Admin filter - state_id: {state_id}, region_id: {region_id}")
-    elif "District Admin" in user_role_names:
-        state_id = user.state_id
-        region_id = user.region_id
-        district_id = user.district_id
-        print(f"🔍 District Admin filter - state_id: {state_id}, region_id: {region_id}, district_id: {district_id}")
+    # 🎯 SUPER ADMIN BYPASS - No hierarchy constraints
+    if user.has_role("Super Admin"):
+        print("🎯 Super Admin - viewing ALL records without hierarchy filters")
+        # Simply pass the query parameters, no hierarchy filters
+        records = youth_attendance_controller.get_all_youth_attendance(
+            attendance_type=attendance_type,
+            state_id=None,        # Explicitly None = no filter
+            region_id=None,       # Explicitly None = no filter
+            district_id=None,     # Explicitly None = no filter
+            year=year,
+            month=month,
+        )
+        
     else:
-        # Basic users might see only their own records or nothing
-        print("🔍 Basic user - applying strict filters")
-        # You might want to return empty or only records they created
-        return jsonify([]), 200
+        # For all other roles, apply hierarchy constraints
+        state_id = region_id = district_id = None
+        
+        if user.has_role("State Admin"):
+            if not user.state_id:
+                return jsonify({"error": "State Admin account missing state assignment"}), 400
+            state_id = user.state_id
+            print(f"🔍 State Admin - filtering by state: {state_id}")
+            
+        elif user.has_role("Region Admin"):
+            if not user.state_id or not user.region_id:
+                return jsonify({"error": "Region Admin account missing state/region assignment"}), 400
+            state_id = user.state_id
+            region_id = user.region_id
+            print(f"🔍 Region Admin - filtering by state: {state_id}, region: {region_id}")
+            
+        elif user.has_role("District Admin"):
+            if not all([user.state_id, user.region_id, user.district_id]):
+                return jsonify({"error": "District Admin account missing hierarchy assignment"}), 400
+            state_id = user.state_id
+            region_id = user.region_id
+            district_id = user.district_id
+            print(f"🔍 District Admin - filtering by state: {state_id}, region: {region_id}, district: {district_id}")
+            
+        else:
+            return jsonify([]), 200
 
-    # Get records with filters
-    records = youth_attendance_controller.get_all_youth_attendance(
-        attendance_type=attendance_type,
-        state_id=state_id,
-        region_id=region_id,
-        district_id=district_id,
-        year=year,
-        month=month,
-    )
+        records = youth_attendance_controller.get_all_youth_attendance(
+            attendance_type=attendance_type,
+            state_id=state_id,
+            region_id=region_id,
+            district_id=district_id,
+            year=year,
+            month=month,
+        )
 
-    print(f"🔍 Found {len(records)} records")
-    
-    # Debug first record if exists
-    if records:
-        print(f"🔍 First record: {records[0].to_dict() if hasattr(records[0], 'to_dict') else 'No to_dict method'}")
-
+    print(f"✅ Found {len(records)} records")
     return jsonify([r.to_dict() for r in records]), 200
 
+
+    
 # def list_youth_attendance():
 #     user_id = get_jwt_identity()
 #     user = User.query.get(user_id)

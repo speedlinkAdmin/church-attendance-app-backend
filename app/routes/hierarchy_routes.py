@@ -2,11 +2,13 @@
 from flask import Blueprint, request, jsonify
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from app.extensions import db
+from app.models.attendance import Attendance
 from app.models.hierarchy import State, Region, District, Group, OldGroup
 import pandas as pd
 from io import BytesIO
 from flasgger import swag_from
 from app.models.user import User
+from app.models.youth_attendance import YouthAttendance
 from app.utils.access_control import require_role, restrict_by_access
 
 
@@ -244,7 +246,8 @@ def create_region():
       400:
         description: Invalid input data
     """
-    data = request.get_json()  # ✅ Move this FIRST
+
+    data = request.get_json()
     current_user = User.query.get(get_jwt_identity())
 
     # Validate required fields
@@ -253,9 +256,10 @@ def create_region():
         if not data.get(field):
             return jsonify({"error": f"Missing required field '{field}'"}), 400
 
-    # Fix the logic: State Admin (NOT Super Admin) should be restricted
+    # 🎯 FIX: Only restrict State Admin, NOT Super Admin
     if current_user.has_role("State Admin") and data["state_id"] != current_user.state_id:
         return jsonify({"error": "You cannot create a region in another state"}), 403
+    # Super Admin can create regions in ANY state - no restrictions
 
     region = Region(
         name=data['name'],
@@ -268,11 +272,19 @@ def create_region():
     return jsonify({"message": "Region created"}), 201
 
 
+    # data = request.get_json()  # ✅ Move this FIRST
     # current_user = User.query.get(get_jwt_identity())
-    # if current_user.has_role("Super Admin") and data["state_id"] != current_user.state_id:
+
+    # # Validate required fields
+    # required_fields = ["name", "code", "state_id"]
+    # for field in required_fields:
+    #     if not data.get(field):
+    #         return jsonify({"error": f"Missing required field '{field}'"}), 400
+
+    # # Fix the logic: State Admin (NOT Super Admin) should be restricted
+    # if current_user.has_role("State Admin") and data["state_id"] != current_user.state_id:
     #     return jsonify({"error": "You cannot create a region in another state"}), 403
 
-    # data = request.get_json()
     # region = Region(
     #     name=data['name'],
     #     code=data['code'],
@@ -282,6 +294,7 @@ def create_region():
     # db.session.add(region)
     # db.session.commit()
     # return jsonify({"message": "Region created"}), 201
+
 
 @hierarchy_bp.route('/regions', methods=['GET'])
 @jwt_required()
@@ -347,12 +360,33 @@ def update_region(id):
         description: Region updated successfully
     """
     data = request.get_json() or {}
+    current_user = User.query.get(get_jwt_identity())
     region = Region.query.get_or_404(id)
+
+    # 🎯 ADD ACCESS CONTROL
+    if not current_user.has_role("Super Admin"):
+        # State Admin can only update regions in their state
+        if current_user.has_role("State Admin") and region.state_id != current_user.state_id:
+            return jsonify({"error": "You cannot update regions outside your state"}), 403
+            
+        # Region Admin shouldn't be able to update regions at all
+        elif current_user.has_role("Region Admin"):
+            return jsonify({"error": "You do not have permission to update regions"}), 403
+
     region.name = data.get("name", region.name)
     region.code = data.get("code", region.code)
     region.leader = data.get("leader", region.leader)
     db.session.commit()
     return jsonify(region.to_dict()), 200
+
+
+    # data = request.get_json() or {}
+    # region = Region.query.get_or_404(id)
+    # region.name = data.get("name", region.name)
+    # region.code = data.get("code", region.code)
+    # region.leader = data.get("leader", region.leader)
+    # db.session.commit()
+    # return jsonify(region.to_dict()), 200
 
 
 @hierarchy_bp.route("/region/<int:id>", methods=["DELETE"])
@@ -375,10 +409,27 @@ def delete_region(id):
       200:
         description: Region deleted successfully
     """
+    current_user = User.query.get(get_jwt_identity())
     region = Region.query.get_or_404(id)
+
+    # 🎯 ADD ACCESS CONTROL
+    if not current_user.has_role("Super Admin"):
+        # State Admin can only delete regions in their state
+        if current_user.has_role("State Admin") and region.state_id != current_user.state_id:
+            return jsonify({"error": "You cannot delete regions outside your state"}), 403
+            
+        # Region Admin shouldn't be able to delete regions at all
+        elif current_user.has_role("Region Admin"):
+            return jsonify({"error": "You do not have permission to delete regions"}), 403
+
     db.session.delete(region)
     db.session.commit()
     return jsonify({"message": "Region deleted"}), 200
+
+    # region = Region.query.get_or_404(id)
+    # db.session.delete(region)
+    # db.session.commit()
+    # return jsonify({"message": "Region deleted"}), 200
 
 
 
@@ -424,13 +475,16 @@ def create_district():
     data = request.get_json()
     current_user = User.query.get(get_jwt_identity())
 
-    # State Admin restriction
-    if current_user.has_role("state admin") and current_user.state_id != data.get("state_id"):
-        return jsonify({"error": "You cannot create a district outside your state"}), 403
+    # 🎯 FIX: Only restrict non-Super Admin users
+    # Check if user is NOT Super Admin before applying restrictions
+    if not current_user.has_role("Super Admin"):
+        # State Admin restriction - only for State Admin (not Super Admin)
+        if current_user.has_role("State Admin") and current_user.state_id != data.get("state_id"):
+            return jsonify({"error": "You cannot create a district outside your state"}), 403
 
-    # Region Admin restriction  
-    if current_user.has_role("region admin") and current_user.region_id not in (None, data.get("region_id")):
-        return jsonify({"error": "You cannot create a district outside your region"}), 403
+        # Region Admin restriction - only for Region Admin (not Super Admin)  
+        if current_user.has_role("Region Admin") and current_user.region_id not in (None, data.get("region_id")):
+            return jsonify({"error": "You cannot create a district outside your region"}), 403
 
     # Validate required fields
     required_fields = ["name", "code", "state_id", "region_id"]
@@ -455,28 +509,37 @@ def create_district():
 
 
     # data = request.get_json()
+    # current_user = User.query.get(get_jwt_identity())
 
-    # current_user = User.query.get(get_jwt_identity())   
-
-    # if current_user.state_id != data["state_id"]:
+    # # State Admin restriction
+    # if current_user.has_role("state admin") and current_user.state_id != data.get("state_id"):
     #     return jsonify({"error": "You cannot create a district outside your state"}), 403
 
-    # if current_user.region_id not in (None, data["region_id"]):
+    # # Region Admin restriction  
+    # if current_user.has_role("region admin") and current_user.region_id not in (None, data.get("region_id")):
     #     return jsonify({"error": "You cannot create a district outside your region"}), 403
 
-    # # data = request.get_json()
+    # # Validate required fields
+    # required_fields = ["name", "code", "state_id", "region_id"]
+    # for field in required_fields:
+    #     if not data.get(field):
+    #         return jsonify({"error": f"Missing required field '{field}'"}), 400
+
     # district = District(
     #     name=data['name'],
     #     code=data['code'],
     #     leader=data.get('leader'),
     #     state_id=data['state_id'],
     #     region_id=data['region_id'],
-    #     old_group_id=data['old_group_id'],
-    #     group_id=data['group_id']
+    #     old_group_id=data.get('old_group_id'),
+    #     group_id=data.get('group_id')
     # )
+    
     # db.session.add(district)
     # db.session.commit()
+    
     # return jsonify({"message": "District created"}), 201
+
 
 @hierarchy_bp.route('/districts', methods=['GET'])
 @jwt_required()
@@ -536,13 +599,62 @@ def update_district(id):
       200:
         description: District updated successfully
     """
+    current_user = User.query.get(get_jwt_identity())
     data = request.get_json() or {}
     district = District.query.get_or_404(id)
+
+    print(f"🔍 User: {current_user.id}, Roles: {[r.name for r in current_user.roles]}")
+    print(f"🔍 Updating district: {district.id} in state: {district.state_id}, region: {district.region_id}")
+
+    # 🎯 ADD ACCESS CONTROL
+    if not current_user.has_role("Super Admin"):
+        # State Admin can only update districts in their state
+        if current_user.has_role("State Admin") and current_user.state_id != district.state_id:
+            return jsonify({"error": "You cannot update districts outside your state"}), 403
+            
+        # Region Admin can only update districts in their region
+        if current_user.has_role("Region Admin") and current_user.region_id != district.region_id:
+            return jsonify({"error": "You cannot update districts outside your region"}), 403
+            
+        # District Admin can only update their own district
+        if current_user.has_role("District Admin") and current_user.district_id != id:
+            return jsonify({"error": "You cannot update districts outside your assigned district"}), 403
+    else:
+        print("🎯 Super Admin - updating district without restrictions")
+
+    # Update basic fields (allowed for all authorized users)
     district.name = data.get("name", district.name)
     district.code = data.get("code", district.code)
     district.leader = data.get("leader", district.leader)
+
+    # 🎯 Only Super Admin should be able to change hierarchy relationships
+    if current_user.has_role("Super Admin"):
+        if 'state_id' in data:
+            district.state_id = data['state_id']
+        if 'region_id' in data:
+            district.region_id = data['region_id']
+        if 'old_group_id' in data:
+            district.old_group_id = data['old_group_id']
+        if 'group_id' in data:
+            district.group_id = data['group_id']
+    else:
+        # Non-Super Admins cannot change hierarchy
+        hierarchy_fields = ['state_id', 'region_id', 'old_group_id', 'group_id']
+        changed_hierarchy_fields = [field for field in hierarchy_fields if field in data and getattr(district, field) != data[field]]
+        if changed_hierarchy_fields:
+            return jsonify({"error": f"You cannot change hierarchy fields: {', '.join(changed_hierarchy_fields)}"}), 403
+
     db.session.commit()
     return jsonify(district.to_dict()), 200
+
+
+    # data = request.get_json() or {}
+    # district = District.query.get_or_404(id)
+    # district.name = data.get("name", district.name)
+    # district.code = data.get("code", district.code)
+    # district.leader = data.get("leader", district.leader)
+    # db.session.commit()
+    # return jsonify(district.to_dict()), 200
 
 
 @hierarchy_bp.route("/district/<int:id>", methods=["DELETE"])
@@ -564,10 +676,55 @@ def delete_district(id):
       200:
         description: District deleted successfully
     """
+    current_user = User.query.get(get_jwt_identity())
     district = District.query.get_or_404(id)
+
+    print(f"🔍 User: {current_user.id}, Roles: {[r.name for r in current_user.roles]}")
+    print(f"🔍 Deleting district: {district.id} in state: {district.state_id}, region: {district.region_id}")
+
+    # 🎯 ADD ACCESS CONTROL
+    if not current_user.has_role("Super Admin"):
+        # State Admin can only delete districts in their state
+        if current_user.has_role("State Admin") and current_user.state_id != district.state_id:
+            return jsonify({"error": "You cannot delete districts outside your state"}), 403
+            
+        # Region Admin can only delete districts in their region
+        if current_user.has_role("Region Admin") and current_user.region_id != district.region_id:
+            return jsonify({"error": "You cannot delete districts outside your region"}), 403
+            
+        # District Admin cannot delete districts at all (including their own)
+        if current_user.has_role("District Admin"):
+            return jsonify({"error": "You do not have permission to delete districts"}), 403
+    else:
+        print("🎯 Super Admin - deleting district without restrictions")
+
+    # 🎯 Optional: Check if district has dependent records before deletion
+    # For example, check if there are users, attendance records, etc. associated with this district
+    has_users = User.query.filter_by(district_id=id).first()
+    has_attendance = Attendance.query.filter_by(district_id=id).first()
+    has_youth_attendance = YouthAttendance.query.filter_by(district_id=id).first()
+    
+    if any([has_users, has_attendance, has_youth_attendance]):
+        dependent_records = []
+        if has_users: dependent_records.append("users")
+        if has_attendance: dependent_records.append("attendance records")
+        if has_youth_attendance: dependent_records.append("youth attendance records")
+        
+        return jsonify({
+            "error": f"Cannot delete district. It has dependent {', '.join(dependent_records)}. Please reassign or delete those records first."
+        }), 400
+
     db.session.delete(district)
     db.session.commit()
-    return jsonify({"message": "District deleted"}), 200
+    
+    return jsonify({"message": "District deleted successfully"}), 200
+
+
+    
+    # district = District.query.get_or_404(id)
+    # db.session.delete(district)
+    # db.session.commit()
+    # return jsonify({"message": "District deleted"}), 200
 
 
 ### ---------- GROUPS ----------
@@ -623,36 +780,38 @@ def create_group():
     data = request.get_json() or {}
     current_user = User.query.get(get_jwt_identity())
 
-    # Debug: Print received data
-    print(f"Received data: {data}")
+    print(f"🔍 User: {current_user.id}, Roles: {[r.name for r in current_user.roles]}")
+    print(f"🔍 Received data: {data}")
 
-    # Fix 1: Use the correct method call with parentheses
-    # STATE ADMIN cannot create group in another state
-    if current_user.has_role("state admin") and data.get("state_id") != current_user.state_id:
-        return jsonify({"error": "You are not allowed to create groups in another state"}), 403
+    # 🎯 FIX: Only apply restrictions to non-Super Admin users
+    if not current_user.has_role("Super Admin"):
+        # STATE ADMIN cannot create group in another state
+        if current_user.has_role("State Admin") and data.get("state_id") != current_user.state_id:
+            return jsonify({"error": "You are not allowed to create groups in another state"}), 403
 
-    # REGION ADMIN cannot create group in another region
-    if current_user.has_role("region admin") and data.get("region_id") != current_user.region_id:
-        return jsonify({"error": "You cannot create groups in another region"}), 403
+        # REGION ADMIN cannot create group in another region
+        if current_user.has_role("Region Admin") and data.get("region_id") != current_user.region_id:
+            return jsonify({"error": "You cannot create groups in another region"}), 403
+    else:
+        print("🎯 Super Admin - creating group without hierarchy restrictions")
 
-    # Fix 2: Use correct field names that match the frontend payload
-    required_fields = ["group_name", "state_id", "region_id"]  # Removed old_group_id if not required
+    # Validate required fields
+    required_fields = ["group_name", "state_id", "region_id"]
     for field in required_fields:
         if not data.get(field):
             return jsonify({"error": f"Missing required field '{field}'"}), 400
 
-    # Fix 3: Use group_name instead of name
+    # Auto-generate code
     name = data["group_name"]
     code = f"GRP-{''.join([word[0].upper() for word in name.split()[:2]])}"
 
-    # Fix 4: Create group with correct fields
     group = Group(
-        name=name,  # Use the group_name as name
+        name=name,
         code=code,
         leader=data.get("leader"),
         state_id=data["state_id"],
         region_id=data["region_id"],
-        old_group_id=data.get("old_group_id")  # Use .get() since it might not be provided
+        old_group_id=data.get("old_group_id")
     )
 
     db.session.add(group)
@@ -663,49 +822,49 @@ def create_group():
         "data": group.to_dict()
     }), 201
 
-# def create_group():
-#     data = request.get_json() or {}
-#     current_user = User.query.get(get_jwt_identity())
 
-#     # Get user's role names
-#     user_role_names = [role.name.lower() for role in current_user.roles]
+    # data = request.get_json() or {}
+    # current_user = User.query.get(get_jwt_identity())
 
+    # # Debug: Print received data
+    # print(f"Received data: {data}")
 
-#     # STATE ADMIN cannot create group in another state
-#     if current_user.has_role == "state-admin" and data["state_id"] != current_user.state_id:
-#         return jsonify({"error": "You are not allowed to create groups in another state"}), 403
+    # # Fix 1: Use the correct method call with parentheses
+    # # STATE ADMIN cannot create group in another state
+    # if current_user.has_role("state admin") and data.get("state_id") != current_user.state_id:
+    #     return jsonify({"error": "You are not allowed to create groups in another state"}), 403
 
-#     # REGION ADMIN cannot create group in another region
-#     if current_user.has_role == "region-admin" and data["region_id"] != current_user.region_id:
-#         return jsonify({"error": "You cannot create groups in another region"}), 403
+    # # REGION ADMIN cannot create group in another region
+    # if current_user.has_role("region admin") and data.get("region_id") != current_user.region_id:
+    #     return jsonify({"error": "You cannot create groups in another region"}), 403
 
-    
-#     required_fields = ["name", "state_id", "region_id", "old_group_id"]
-#     for field in required_fields:
-#         if not data.get(field):
-#             return jsonify({"error": f"Missing required field '{field}'"}), 400
+    # # Fix 2: Use correct field names that match the frontend payload
+    # required_fields = ["group_name", "state_id", "region_id"]  # Removed old_group_id if not required
+    # for field in required_fields:
+    #     if not data.get(field):
+    #         return jsonify({"error": f"Missing required field '{field}'"}), 400
 
-#     # Auto-generate code
-#     name = data["name"]
-#     code = f"GRP-{''.join([word[0].upper() for word in name.split()[:2]])}"
+    # # Fix 3: Use group_name instead of name
+    # name = data["group_name"]
+    # code = f"GRP-{''.join([word[0].upper() for word in name.split()[:2]])}"
 
-#     group = Group(
-#         name=name,
-#         code=code,
-#         leader=data.get("leader"),
-#         state_id=data["state_id"],
-#         region_id=data["region_id"],
-#         old_group_id=data["old_group_id"]
-#     )
+    # # Fix 4: Create group with correct fields
+    # group = Group(
+    #     name=name,  # Use the group_name as name
+    #     code=code,
+    #     leader=data.get("leader"),
+    #     state_id=data["state_id"],
+    #     region_id=data["region_id"],
+    #     old_group_id=data.get("old_group_id")  # Use .get() since it might not be provided
+    # )
 
-#     db.session.add(group)
-#     db.session.commit()
+    # db.session.add(group)
+    # db.session.commit()
 
-#     return jsonify({
-#         "message": "Group created",
-#         "data": group.to_dict()
-#     }), 201
-
+    # return jsonify({
+    #     "message": "Group created",
+    #     "data": group.to_dict()
+    # }), 201
 
 @hierarchy_bp.route('/groups', methods=['GET'])
 @jwt_required()
@@ -758,6 +917,7 @@ def get_groups():
 # DELETE GROUP
 # ---------------------------
 @hierarchy_bp.route("/groups/<int:group_id>", methods=["DELETE"])
+@jwt_required()
 @swag_from({
     "tags": ["Groups"],
     "summary": "Delete a group",
@@ -771,12 +931,38 @@ def get_groups():
     },
 })
 def delete_group(group_id):
+    current_user = User.query.get(get_jwt_identity())
+    group = Group.query.get_or_404(group_id)
+
+    # 🎯 ADD ACCESS CONTROL
+    if not current_user.has_role("Super Admin"):
+        # State Admin can only delete groups in their state
+        if current_user.has_role("State Admin") and current_user.state_id != group.state_id:
+            return jsonify({"error": "You cannot delete groups outside your state"}), 403
+            
+        # Region Admin can only delete groups in their region
+        if current_user.has_role("Region Admin") and current_user.region_id != group.region_id:
+            return jsonify({"error": "You cannot delete groups outside your region"}), 403
+            
+        # District Admin cannot delete groups at all
+        if current_user.has_role("District Admin"):
+            return jsonify({"error": "You do not have permission to delete groups"}), 403
+
+    db.session.delete(group)
+    db.session.commit()
+    
     return jsonify({"status": "success", "message": f"Group {group_id} deleted"}), 200
+
+
+# def delete_group(group_id):
+#     return jsonify({"status": "success", "message": f"Group {group_id} deleted"}), 200
 
 
 ### ---------- OLD GROUPS ----------
 ### ---------- OLD GROUPS ----------
 @hierarchy_bp.route('/oldgroups', methods=['POST'])
+@jwt_required()
+@require_role(["super-admin", "state-admin", "region-admin"])
 @swag_from({
     "tags": ["Old Groups"],
     "summary": "Create a new Old Group (autogenerated code)",
@@ -820,8 +1006,27 @@ def delete_group(group_id):
 })
 def create_oldgroup():
     data = request.get_json() or {}
+    current_user = User.query.get(get_jwt_identity())
 
-    # Validate required fields - REMOVED district_id and group_id
+    print(f"🔍 User: {current_user.id}, Roles: {[r.name for r in current_user.roles]}")
+
+    # 🎯 ADD ACCESS CONTROL
+    if not current_user.has_role("Super Admin"):
+        # State Admin can only create old groups in their state
+        if current_user.has_role("State Admin") and data.get("state_id") != current_user.state_id:
+            return jsonify({"error": "You cannot create old groups outside your state"}), 403
+
+        # Region Admin can only create old groups in their region
+        if current_user.has_role("Region Admin") and data.get("region_id") != current_user.region_id:
+            return jsonify({"error": "You cannot create old groups outside your region"}), 403
+            
+        # District Admin cannot create old groups at all
+        if current_user.has_role("District Admin"):
+            return jsonify({"error": "You do not have permission to create old groups"}), 403
+    else:
+        print("🎯 Super Admin - creating old group without hierarchy restrictions")
+
+    # Validate required fields
     required_fields = ["name", "state_id", "region_id"]
     for field in required_fields:
         if not data.get(field):
@@ -837,7 +1042,6 @@ def create_oldgroup():
         leader=data.get("leader"),
         state_id=data["state_id"],
         region_id=data["region_id"]
-        # REMOVED: district_id and group_id
     )
 
     db.session.add(old_group)
@@ -852,9 +1056,46 @@ def create_oldgroup():
             "leader": old_group.leader,
             "state_id": old_group.state_id,
             "region_id": old_group.region_id
-            # REMOVED: district_id and group_id
         }
     }), 201
+
+    # data = request.get_json() or {}
+
+    # # Validate required fields - REMOVED district_id and group_id
+    # required_fields = ["name", "state_id", "region_id"]
+    # for field in required_fields:
+    #     if not data.get(field):
+    #         return jsonify({"error": f"Missing required field '{field}'"}), 400
+
+    # # Autogenerate code from first two letters of name
+    # name = data["name"]
+    # code = f"GRP-{''.join([word[0].upper() for word in name.split()[:2]])}"
+
+    # old_group = OldGroup(
+    #     name=name,
+    #     code=code,
+    #     leader=data.get("leader"),
+    #     state_id=data["state_id"],
+    #     region_id=data["region_id"]
+    #     # REMOVED: district_id and group_id
+    # )
+
+    # db.session.add(old_group)
+    # db.session.commit()
+
+    # return jsonify({
+    #     "message": "Old Group created",
+    #     "data": {
+    #         "id": old_group.id,
+    #         "name": old_group.name,
+    #         "code": old_group.code,
+    #         "leader": old_group.leader,
+    #         "state_id": old_group.state_id,
+    #         "region_id": old_group.region_id
+    #         # REMOVED: district_id and group_id
+    #     }
+    # }), 201
+
 
 @hierarchy_bp.route('/oldgroups/<int:id>', methods=['PUT'])
 @swag_from({
@@ -907,11 +1148,26 @@ def create_oldgroup():
     }
 })
 def update_oldgroup(id):
+    current_user = User.query.get(get_jwt_identity())
     data = request.get_json() or {}
     
     old_group = OldGroup.query.get(id)
     if not old_group:
         return jsonify({"error": "Old Group not found"}), 404
+
+    # 🎯 ADD ACCESS CONTROL
+    if not current_user.has_role("Super Admin"):
+        # State Admin can only update old groups in their state
+        if current_user.has_role("State Admin") and current_user.state_id != old_group.state_id:
+            return jsonify({"error": "You cannot update old groups outside your state"}), 403
+            
+        # Region Admin can only update old groups in their region
+        if current_user.has_role("Region Admin") and current_user.region_id != old_group.region_id:
+            return jsonify({"error": "You cannot update old groups outside your region"}), 403
+            
+        # District Admin cannot update old groups at all (they're at a lower hierarchy level)
+        if current_user.has_role("District Admin"):
+            return jsonify({"error": "You do not have permission to update old groups"}), 403
 
     # Update fields if provided
     if 'name' in data:
@@ -924,14 +1180,18 @@ def update_oldgroup(id):
     if 'leader' in data:
         old_group.leader = data['leader']
     
-    if 'state_id' in data:
-        old_group.state_id = data['state_id']
+    # 🎯 Only Super Admin should be able to change hierarchy
+    if current_user.has_role("Super Admin"):
+        if 'state_id' in data:
+            old_group.state_id = data['state_id']
+        
+        if 'region_id' in data:
+            old_group.region_id = data['region_id']
+    else:
+        # Non-Super Admins cannot change hierarchy
+        if 'state_id' in data or 'region_id' in data:
+            return jsonify({"error": "You cannot change the hierarchy location of old groups"}), 403
     
-    if 'region_id' in data:
-        old_group.region_id = data['region_id']
-    
-    # REMOVED: district_id and group_id updates
-
     db.session.commit()
 
     return jsonify({
@@ -943,12 +1203,52 @@ def update_oldgroup(id):
             "leader": old_group.leader,
             "state_id": old_group.state_id,
             "region_id": old_group.region_id
-            # REMOVED: district_id and group_id
         }
     }), 200
 
+    # data = request.get_json() or {}
+    
+    # old_group = OldGroup.query.get(id)
+    # if not old_group:
+    #     return jsonify({"error": "Old Group not found"}), 404
+
+    # # Update fields if provided
+    # if 'name' in data:
+    #     old_group.name = data['name']
+    #     # Regenerate code if name changed and regenerate_code is True or not specified
+    #     if data.get('regenerate_code', True):
+    #         code = f"GRP-{''.join([word[0].upper() for word in data['name'].split()[:2]])}"
+    #         old_group.code = code
+
+    # if 'leader' in data:
+    #     old_group.leader = data['leader']
+    
+    # if 'state_id' in data:
+    #     old_group.state_id = data['state_id']
+    
+    # if 'region_id' in data:
+    #     old_group.region_id = data['region_id']
+    
+    # # REMOVED: district_id and group_id updates
+
+    # db.session.commit()
+
+    # return jsonify({
+    #     "message": "Old Group updated",
+    #     "data": {
+    #         "id": old_group.id,
+    #         "name": old_group.name,
+    #         "code": old_group.code,
+    #         "leader": old_group.leader,
+    #         "state_id": old_group.state_id,
+    #         "region_id": old_group.region_id
+    #         # REMOVED: district_id and group_id
+    #     }
+    # }), 200
+
 
 @hierarchy_bp.route('/oldgroups/<int:id>', methods=['DELETE'])
+@jwt_required()
 @swag_from({
     "tags": ["Old Groups"],
     "summary": "Delete an Old Group",
@@ -975,14 +1275,40 @@ def update_oldgroup(id):
     }
 })
 def delete_oldgroup(id):
+    current_user = User.query.get(get_jwt_identity())
+    
     old_group = OldGroup.query.get(id)
     if not old_group:
         return jsonify({"error": "Old Group not found"}), 404
+
+    # 🎯 ADD ACCESS CONTROL
+    if not current_user.has_role("Super Admin"):
+        # State Admin can only delete old groups in their state
+        if current_user.has_role("State Admin") and current_user.state_id != old_group.state_id:
+            return jsonify({"error": "You cannot delete old groups outside your state"}), 403
+            
+        # Region Admin can only delete old groups in their region
+        if current_user.has_role("Region Admin") and current_user.region_id != old_group.region_id:
+            return jsonify({"error": "You cannot delete old groups outside your region"}), 403
+            
+        # District Admin cannot delete old groups at all
+        if current_user.has_role("District Admin"):
+            return jsonify({"error": "You do not have permission to delete old groups"}), 403
 
     db.session.delete(old_group)
     db.session.commit()
 
     return jsonify({"message": "Old Group deleted successfully"}), 200
+
+
+    # old_group = OldGroup.query.get(id)
+    # if not old_group:
+    #     return jsonify({"error": "Old Group not found"}), 404
+
+    # db.session.delete(old_group)
+    # db.session.commit()
+
+    # return jsonify({"message": "Old Group deleted successfully"}), 200
 
 
 @hierarchy_bp.route('/oldgroups/<int:id>', methods=['GET'])
@@ -1274,11 +1600,42 @@ def oldgroups_by_group(group_id):
 })
 @jwt_required()
 def update_group(id):
-    data = request.get_json() or {}
+
+    current_user = User.query.get(get_jwt_identity())
     group = Group.query.get_or_404(id)
+    data = request.get_json() or {}
+    
+    # 🎯 ADD ACCESS CONTROL
+    if not current_user.has_role("Super Admin"):
+        # State Admin can only update groups in their state
+        if current_user.has_role("State Admin") and current_user.state_id != group.state_id:
+            return jsonify({"error": "You cannot update groups outside your state"}), 403
+            
+        # Region Admin can only update groups in their region
+        if current_user.has_role("Region Admin") and current_user.region_id != group.region_id:
+            return jsonify({"error": "You cannot update groups outside your region"}), 403
+            
+        # District Admin can only update groups in their district
+        if current_user.has_role("District Admin") and current_user.district_id != group.district_id:
+            return jsonify({"error": "You cannot update groups outside your district"}), 403
+            
+        # Group Admin can only update their own group (if you implement this role)
+        if current_user.has_role("Group Admin") and current_user.group_id != id:
+            return jsonify({"error": "You cannot update groups outside your assigned group"}), 403
+    
+    # Super Admin and authorized users can update the group
     group.name = data.get("name", group.name)
     group.code = data.get("code", group.code)
     group.leader = data.get("leader", group.leader)
     db.session.commit()
     return jsonify(group.to_dict()), 200
+
+
+    # data = request.get_json() or {}
+    # group = Group.query.get_or_404(id)
+    # group.name = data.get("name", group.name)
+    # group.code = data.get("code", group.code)
+    # group.leader = data.get("leader", group.leader)
+    # db.session.commit()
+    # return jsonify(group.to_dict()), 200
 

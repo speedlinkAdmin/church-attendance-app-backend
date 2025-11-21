@@ -7,17 +7,26 @@ def create_attendance(data):
     db.session.commit()
     return attendance
 
+
 def get_all_attendance(service_type=None, state_id=None, region_id=None, district_id=None, 
                       group_id=None, old_group_id=None, year=None, month=None):
     query = Attendance.query
 
+    print(f"🔍 [ATTENDANCE CONTROLLER] Building query with filters:")
+    print(f"   - service_type: {service_type}")
+    print(f"   - state_id: {state_id}") 
+    print(f"   - region_id: {region_id}")
+    print(f"   - district_id: {district_id}")
+    # ... other filters
+
+    # Only apply filters if they are not None
     if service_type:
         query = query.filter_by(service_type=service_type)
-    if state_id:
+    if state_id is not None:  # Important: check for None, not truthy
         query = query.filter_by(state_id=state_id)
-    if region_id:
+    if region_id is not None:  # Important: check for None, not truthy  
         query = query.filter_by(region_id=region_id)
-    if district_id:
+    if district_id is not None:  # Important: check for None, not truthy
         query = query.filter_by(district_id=district_id)
     if group_id:
         query = query.filter_by(group_id=group_id)
@@ -28,7 +37,33 @@ def get_all_attendance(service_type=None, state_id=None, region_id=None, distric
     if month:
         query = query.filter_by(month=month)
     
-    return query.all()
+    results = query.all()
+    print(f"🔍 [ATTENDANCE CONTROLLER] Query returned {len(results)} records")
+    
+    return results
+
+# def get_all_attendance(service_type=None, state_id=None, region_id=None, district_id=None, 
+#                       group_id=None, old_group_id=None, year=None, month=None):
+#     query = Attendance.query
+
+#     if service_type:
+#         query = query.filter_by(service_type=service_type)
+#     if state_id:
+#         query = query.filter_by(state_id=state_id)
+#     if region_id:
+#         query = query.filter_by(region_id=region_id)
+#     if district_id:
+#         query = query.filter_by(district_id=district_id)
+#     if group_id:
+#         query = query.filter_by(group_id=group_id)
+#     if old_group_id:
+#         query = query.filter_by(old_group_id=old_group_id)
+#     if year:
+#         query = query.filter_by(year=year)
+#     if month:
+#         query = query.filter_by(month=month)
+    
+#     return query.all()
 
 
 def get_attendance_by_id(attendance_id):

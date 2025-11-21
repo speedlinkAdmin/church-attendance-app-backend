@@ -28,8 +28,14 @@ class User(db.Model):
     state_id = db.Column(db.Integer, db.ForeignKey("states.id"), nullable=True)
     region_id = db.Column(db.Integer, db.ForeignKey("regions.id"), nullable=True)
     district_id = db.Column(db.Integer, db.ForeignKey("districts.id"), nullable=True)
+    group_id = db.Column(db.Integer, db.ForeignKey("groups.id"), nullable=True)  # 🆕 ADDED
+    old_group_id = db.Column(db.Integer, db.ForeignKey("old_groups.id"), nullable=True)  # 🆕 ADDED
 
     roles = db.relationship("Role", secondary=user_roles, back_populates="users")
+
+    # 🆕 ADD relationships for the new fields
+    group = db.relationship("Group", backref="users")
+    old_group = db.relationship("OldGroup", backref="users")
 
     def set_password(self, password: str):
         self.password_hash = generate_password_hash(password)
@@ -54,7 +60,9 @@ class User(db.Model):
         elif "District Admin" in role_names:
             return f"District Access (District ID: {self.district_id})"
         elif "Group Admin" in role_names:
-            return f"Group Access (District ID: {self.district_id})"
+            return f"Group Access (Group ID: {self.group_id})"  # 🎯 FIXED: Now uses group_id
+        elif "Old_Group Admin" in role_names:
+            return f"Old_Group Access (Old_Group ID: {self.old_group_id})"
         else:
             return "Basic Access"
         
@@ -69,6 +77,8 @@ class User(db.Model):
             "state_id": self.state_id,
             "region_id": self.region_id,
             "district_id": self.district_id,
+            "group_id": self.group_id,  # 🆕 ADDED
+            "old_group_id": self.old_group_id,  # 🆕 ADDED
             "access_level": self.access_level(),
         }
 

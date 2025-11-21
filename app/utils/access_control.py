@@ -39,31 +39,6 @@ def require_role(allowed_roles):
     return wrapper
 
 
-# def require_role(allowed_roles):
-#     """Decorator to ensure user has at least one allowed role."""
-
-#     def wrapper(fn):
-#         @wraps(fn)
-#         def decorated(*args, **kwargs):
-#             user_id = get_jwt_identity()
-#             user = User.query.get(user_id)
-
-#             if not user:
-#                 return jsonify({"error": "Invalid user"}), 401
-
-#             user_roles = [r.name.lower() for r in user.roles]
-
-#             # Check if user has ANY allowed role
-#             if not any(role.lower() in user_roles for role in allowed_roles):
-#                 return jsonify({"error": "You do not have permission for this action"}), 403
-
-#             return fn(*args, **kwargs)
-
-#         return decorated
-
-#     return wrapper
-
-
 # -----------------------------
 # HIERARCHY ACCESS ENFORCEMENT
 # -----------------------------
@@ -101,48 +76,6 @@ def restrict_by_access(query, user):
     except Exception as e:
         print(f"Error in restrict_by_access: {e}")
         return query.filter_by(id=None)
-
-# def restrict_by_access(query, user):
-#     """
-#     Restrict database query based on user's access level and hierarchy position.
-#     """
-#     # Safety check - if user is not a User object, return query unchanged
-#     if not user or not hasattr(user, 'roles'):
-#         return query
-    
-#     try:
-#         role_names = [r.name.lower() for r in user.roles]
-        
-#         # Map your actual role names to expected role names
-#         # "admin" -> "super admin"
-#         # "state_manager" -> "state admin" 
-#         # etc.
-        
-#         # Super Admin - no restrictions (maps to "admin")
-#         if "Super Admin" in role_names:
-#             return query
-        
-#         # State Admin - restrict to their state (maps to "state_manager")
-#         elif "state_admin" in role_names and user.state_id:
-#             return query.filter_by(state_id=user.state_id)
-        
-#         # Regional Admin - restrict to their region
-#         elif "region_admin" in role_names and user.region_id:
-#             return query.filter_by(region_id=user.region_id)
-        
-#         # District Admin - restrict to their district
-#         elif "district_admin" in role_names and user.district_id:
-#             return query.filter_by(district_id=user.district_id)
-        
-#         # No matching role or missing hierarchy data - return empty query
-#         else:
-#             return query.filter_by(id=None)  # FIXED: Use filter_by(id=None) instead of .none()
-            
-#     except Exception as e:
-#         # Log the error but return empty query to be safe
-#         print(f"Error in restrict_by_access: {e}")
-#         return query.filter_by(id=None)  # FIXED: Use filter_by(id=None)
-    
 
 
 def get_current_user():
@@ -186,41 +119,3 @@ def scoped_query(model):
     return decorator
 
 
-
-
-
-
-
-
-
-
-# from ..models import User, State, Region, District
-
-# def get_user_scope(user: User):
-#     """Return the scope of data a user has access to."""
-#     if user.district_id:
-#         return {"level": "district", "id": user.district_id}
-#     elif user.region_id:
-#         return {"level": "region", "id": user.region_id}
-#     elif user.state_id:
-#         return {"level": "state", "id": user.state_id}
-#     else:
-#         return {"level": "global"}
-
-# def filter_data_by_user_scope(query, user: User):
-#     """Filter database queries based on user's assigned scope."""
-#     scope = get_user_scope(user)
-
-#     if scope["level"] == "state":
-#         return query.filter_by(state_id=scope["id"])
-#     elif scope["level"] == "region":
-#         return query.filter_by(region_id=scope["id"])
-#     elif scope["level"] == "district":
-#         return query.filter_by(district_id=scope["id"])
-#     else:
-#         # Global access (super admin)
-#         return query
-
-
-# # Now, in any controller where you fetch data, you can apply:
-# # query = filter_data_by_user_scope(SomeModel.query, current_user)

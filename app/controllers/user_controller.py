@@ -1,4 +1,6 @@
 from flask import request, jsonify
+
+from app.models.hierarchy import Group, OldGroup
 from ..extensions import db
 from ..models import User, Role
 from flask_jwt_extended import jwt_required, get_jwt_identity
@@ -16,17 +18,27 @@ def can_create_role(current_user, target_roles):
 
     # State Admins can create: State Admin, Region Admin, District Admin, Group Admin, Viewer
     if "State Admin" in current_role_names:
-        allowed_roles = ["State Admin", "Region Admin", "District Admin", "Group Admin", "Viewer"]
+        allowed_roles = ["State Admin", "Region Admin", "District Admin", "Old Group Admin","Group Admin", "Viewer"]
         return all(role in allowed_roles for role in target_role_names)
 
     # Region Admins can create: Region Admin, District Admin, Group Admin, Viewer  
     if "Region Admin" in current_role_names:
-        allowed_roles = ["Region Admin", "District Admin", "Group Admin", "Viewer"]
+        allowed_roles = ["Region Admin", "District Admin", "Group Admin", "Old Group Admin","Viewer"]
         return all(role in allowed_roles for role in target_role_names)
 
     # District Admins can create: District Admin, Group Admin, Viewer
     if "District Admin" in current_role_names:
-        allowed_roles = ["District Admin", "Group Admin", "Viewer"]
+        allowed_roles = ["District Admin",  "Viewer"]
+        return all(role in allowed_roles for role in target_role_names)
+
+    # 🆕 Group Admins can create: Group Admin, Viewer
+    if "Group Admin" in current_role_names:
+        allowed_roles = ["Group Admin", "Viewer", "District Admin"]
+        return all(role in allowed_roles for role in target_role_names)
+
+    # 🆕 Group Admins can create: Group Admin, Viewer
+    if "Old_Group Admin" in current_role_names:
+        allowed_roles = ["Group Admin", "Viewer", "District Admin", "Old_Group Admin"]
         return all(role in allowed_roles for role in target_role_names)
 
     return False
@@ -115,7 +127,7 @@ def create_user():
         return jsonify({"error": validation_error}), 400
 
     # Auto-assign hierarchy based on current user's level
-    state_id, region_id, district_id = auto_assign_hierarchy(current_user, data, target_role)
+    state_id, region_id, district_id, group_id, old_group_id = auto_assign_hierarchy(current_user, data, target_role)
 
     # Create user
     user = User(
@@ -125,7 +137,9 @@ def create_user():
         is_active=True,
         state_id=state_id,
         region_id=region_id,
-        district_id=district_id
+        district_id=district_id,
+        group_id=group_id,
+        old_group_id=old_group_id
     )
     user.set_password(password)
     user.roles = [target_role]
@@ -138,6 +152,45 @@ def create_user():
         "user": user.to_dict()
     }), 201
 
+def validate_hierarchy_relationships(data):
+    """Validate that hierarchy IDs have proper relationships"""
+    
+    # 🎯 Validate group_id and old_group_id relationships if provided
+    if data.get('group_id'):
+        group = Group.query.get(data['group_id'])
+        if not group:
+            return f"Group with ID {data['group_id']} does not exist"
+        
+        # If state_id is provided, ensure group belongs to that state
+        if data.get('state_id') and group.state_id != data['state_id']:
+            return f"Group {data['group_id']} does not belong to state {data['state_id']}"
+            
+        # If region_id is provided, ensure group belongs to that region
+        if data.get('region_id') and group.region_id != data['region_id']:
+            return f"Group {data['group_id']} does not belong to region {data['region_id']}"
+    
+    # 🎯 Validate old_group_id relationships if provided
+    if data.get('old_group_id'):
+        old_group = OldGroup.query.get(data['old_group_id'])
+        if not old_group:
+            return f"Old Group with ID {data['old_group_id']} does not exist"
+        
+        # If state_id is provided, ensure old_group belongs to that state
+        if data.get('state_id') and old_group.state_id != data['state_id']:
+            return f"Old Group {data['old_group_id']} does not belong to state {data['state_id']}"
+            
+        # If region_id is provided, ensure old_group belongs to that region
+        if data.get('region_id') and old_group.region_id != data['region_id']:
+            return f"Old Group {data['old_group_id']} does not belong to region {data['region_id']}"
+    
+    # 🎯 Validate group and old_group relationship if both are provided
+    if data.get('group_id') and data.get('old_group_id'):
+        group = Group.query.get(data['group_id'])
+        if group.old_group_id != data['old_group_id']:
+            return f"Group {data['group_id']} does not belong to Old Group {data['old_group_id']}"
+    
+    return None
+
 def auto_assign_hierarchy(current_user, data, target_role):
     """
     Auto-assign hierarchy fields based on current user's level and target role
@@ -146,52 +199,154 @@ def auto_assign_hierarchy(current_user, data, target_role):
     
     # If current user is Super Admin, use provided values or allow null
     if "Super Admin" in current_roles:
-        return data.get("state_id"), data.get("region_id"), data.get("district_id")
+        return (
+            data.get("state_id"), 
+            data.get("region_id"), 
+            data.get("district_id"),
+            data.get("group_id"),
+            data.get("old_group_id")
+        )
     
     # If current user is State Admin, they can only create users in their state
     elif "State Admin" in current_roles:
         state_id = current_user.state_id
-        # For State Admin role, region/district can be null (covers entire state)
+        # For State Admin role, lower hierarchy can be null
         if target_role.name == "State Admin":
-            return state_id, None, None
+            return state_id, None, None, None, None
         # For lower roles, use provided values but enforce state
         else:
-            return state_id, data.get("region_id"), data.get("district_id")
+            return (
+                state_id, 
+                data.get("region_id"), 
+                data.get("district_id"),
+                data.get("group_id"),
+                data.get("old_group_id")
+            )
     
     # If current user is Region Admin, they can only create users in their region
     elif "Region Admin" in current_roles:
-        return current_user.state_id, current_user.region_id, data.get("district_id")
+        return (
+            current_user.state_id, 
+            current_user.region_id, 
+            data.get("district_id"),
+            data.get("group_id"),
+            data.get("old_group_id")
+        )
     
     # If current user is District Admin, they can only create users in their district
     elif "District Admin" in current_roles:
-        return current_user.state_id, current_user.region_id, current_user.district_id
+        return (
+            current_user.state_id, 
+            current_user.region_id, 
+            current_user.district_id,
+            data.get("group_id"),  # District Admin can assign groups
+            data.get("old_group_id")  # District Admin can assign old groups
+        )
     
-    return None, None, None
-
+    # 🆕 If current user is Group Admin, they can only create users in their group
+    elif "Group Admin" in current_roles:
+        return (
+            current_user.state_id, 
+            current_user.region_id, 
+            current_user.district_id,
+            current_user.group_id,  # Must be their group
+            current_user.old_group_id  # Must be their old group
+        )
+    
+    return None, None, None, None, None
 
 def validate_user_hierarchy(data, roles):
     """Validate that hierarchy fields match the user's roles"""
     role_names = [role.name for role in roles]
     
-    # State Admin should have state_id but can have null region/district
+    # State Admin should have state_id but can have null lower hierarchy
     if "State Admin" in role_names:
         if not data.get("state_id"):
             return "State Admin must have a state_id"
-        # State Admin can have null region_id and district_id (covers entire state)
     
-    # Regional Admin should have region_id and state_id
-    elif "Regional Admin" in role_names:
+    # Region Admin should have region_id and state_id
+    elif "Region Admin" in role_names:
         if not data.get("state_id") or not data.get("region_id"):
-            return "Regional Admin must have state_id and region_id"
+            return "Region Admin must have state_id and region_id"
     
-    # District Admin should have all hierarchy fields
+    # District Admin should have district_id, region_id and state_id
     elif "District Admin" in role_names:
         if not all([data.get("state_id"), data.get("region_id"), data.get("district_id")]):
             return "District Admin must have state_id, region_id, and district_id"
     
-    # Group Admin logic would go here when you implement group-level admin
+    # 🆕 Group Admin should have complete hierarchy including group_id
+    elif "Group Admin" in role_names:
+        required_fields = ["state_id", "region_id", "district_id", "group_id"]
+        missing_fields = [field for field in required_fields if not data.get(field)]
+        if missing_fields:
+            return f"Group Admin must have {', '.join(missing_fields)}"
+        
+        # 🎯 Group Admin should also have old_group_id that matches their group
+        if data.get('group_id'):
+            group = Group.query.get(data['group_id'])
+            if group and group.old_group_id and not data.get('old_group_id'):
+                return "Group Admin must have old_group_id that matches their group's old group"
+            if data.get('old_group_id') and group.old_group_id != data.get('old_group_id'):
+                return "Group Admin's old_group_id must match their group's old group"
     
     return None
+
+
+
+# def auto_assign_hierarchy(current_user, data, target_role):
+#     """
+#     Auto-assign hierarchy fields based on current user's level and target role
+#     """
+#     current_roles = [r.name for r in current_user.roles]
+    
+#     # If current user is Super Admin, use provided values or allow null
+#     if "Super Admin" in current_roles:
+#         return data.get("state_id"), data.get("region_id"), data.get("district_id")
+    
+#     # If current user is State Admin, they can only create users in their state
+#     elif "State Admin" in current_roles:
+#         state_id = current_user.state_id
+#         # For State Admin role, region/district can be null (covers entire state)
+#         if target_role.name == "State Admin":
+#             return state_id, None, None
+#         # For lower roles, use provided values but enforce state
+#         else:
+#             return state_id, data.get("region_id"), data.get("district_id")
+    
+#     # If current user is Region Admin, they can only create users in their region
+#     elif "Region Admin" in current_roles:
+#         return current_user.state_id, current_user.region_id, data.get("district_id")
+    
+#     # If current user is District Admin, they can only create users in their district
+#     elif "District Admin" in current_roles:
+#         return current_user.state_id, current_user.region_id, current_user.district_id
+    
+#     return None, None, None
+
+
+# def validate_user_hierarchy(data, roles):
+#     """Validate that hierarchy fields match the user's roles"""
+#     role_names = [role.name for role in roles]
+    
+#     # State Admin should have state_id but can have null region/district
+#     if "State Admin" in role_names:
+#         if not data.get("state_id"):
+#             return "State Admin must have a state_id"
+#         # State Admin can have null region_id and district_id (covers entire state)
+    
+#     # Regional Admin should have region_id and state_id
+#     elif "Region Admin" in role_names:
+#         if not data.get("state_id") or not data.get("region_id"):
+#             return "Regional Admin must have state_id and region_id"
+    
+#     # District Admin should have all hierarchy fields
+#     elif "District Admin" in role_names:
+#         if not all([data.get("state_id"), data.get("region_id"), data.get("district_id")]):
+#             return "District Admin must have state_id, region_id, and district_id"
+    
+#     # Group Admin logic would go here when you implement group-level admin
+    
+#     return None
 
 
 def update_user(user_id):
@@ -234,6 +389,11 @@ def update_user(user_id):
     data = request.get_json()
     user = User.query.get_or_404(user_id)
 
+    # 🎯 VALIDATE HIERARCHY RELATIONSHIPS for updates too
+    validation_error = validate_hierarchy_relationships(data)
+    if validation_error:
+        return jsonify({"error": validation_error}), 400
+
     # Update basic fields
     user.name = data.get("name", user.name)
     user.email = data.get("email", user.email)
@@ -244,6 +404,8 @@ def update_user(user_id):
     user.state_id = data.get("state_id", user.state_id)
     user.region_id = data.get("region_id", user.region_id)
     user.district_id = data.get("district_id", user.district_id)
+    user.group_id = data.get("group_id", user.group_id)
+    user.old_group_id = data.get("old_group_id", user.old_group_id)
 
     # Enhanced role assignment - accepts both IDs and names
     if "roles" in data:
@@ -263,7 +425,40 @@ def update_user(user_id):
     db.session.commit()
     return jsonify({"message": "User updated successfully", "user": user.to_dict()}), 200
 
-    
+
+    # data = request.get_json()
+    # user = User.query.get_or_404(user_id)
+
+    # # Update basic fields
+    # user.name = data.get("name", user.name)
+    # user.email = data.get("email", user.email)
+    # user.phone = data.get("phone", user.phone)
+    # user.is_active = data.get("is_active", user.is_active)
+
+    # # Update hierarchy
+    # user.state_id = data.get("state_id", user.state_id)
+    # user.region_id = data.get("region_id", user.region_id)
+    # user.district_id = data.get("district_id", user.district_id)
+
+    # # Enhanced role assignment - accepts both IDs and names
+    # if "roles" in data:
+    #     role_input = data["roles"]
+        
+    #     if not role_input:  # Empty array
+    #         user.roles = []
+    #     elif isinstance(role_input[0], int):  # Array of IDs [1, 2, 3]
+    #         roles = Role.query.filter(Role.id.in_(role_input)).all()
+    #         user.roles = roles
+    #     elif isinstance(role_input[0], str):  # Array of names ["State Admin", "Region Admin"]
+    #         roles = Role.query.filter(Role.name.in_(role_input)).all()
+    #         user.roles = roles
+    #     else:
+    #         return jsonify({"error": "Roles must be an array of IDs (integers) or names (strings)"}), 400
+
+    # db.session.commit()
+    # return jsonify({"message": "User updated successfully", "user": user.to_dict()}), 200
+
+
     # data = request.get_json()
     # user = User.query.get_or_404(user_id)
 
@@ -329,6 +524,8 @@ def list_users():
             'state_id': user.state_id,
             'region_id': user.region_id,
             'district_id': user.district_id,
+            'group_id': user.group_id,
+            'old_group_id': user.old_group_id,
             'roles': [role.name for role in user.roles],
             'access_level': user.access_level()
         })

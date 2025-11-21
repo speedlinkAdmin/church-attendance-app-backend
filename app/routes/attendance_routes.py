@@ -126,8 +126,8 @@ def create_attendance():
         import traceback
         print(f"Traceback: {traceback.format_exc()}")
         return jsonify({"error": f"Database error: {str(e)}"}), 500
-    
-            
+
+
 # def create_attendance():
 #     data = request.get_json() or {}
     
@@ -288,25 +288,77 @@ def get_attendance():
     
     user_role_names = [role.name for role in user.roles] if user.roles else []
     
-    if "State Admin" in user_role_names:
+    # 🎯 CRITICAL FIX: Handle Super Admin first
+    if "Super Admin" in user_role_names:
+        print("🎯 Super Admin - viewing ALL attendance records")
+        # Super Admin sees everything - explicitly don't set hierarchy filters
+        # This means state_id, region_id, district_id remain None = no filtering
+        pass  # No hierarchy filters for Super Admin
+        
+    elif "State Admin" in user_role_names:
         state_id = user.state_id
-    elif "Regional Admin" in user_role_names:
-        region_id = user.region_id
+        print(f"🔍 State Admin - filtering by state: {state_id}")
+    elif "Region Admin" in user_role_names:
+        region_id = user.region_id  
+        print(f"🔍 Regional Admin - filtering by region: {region_id}")
     elif "District Admin" in user_role_names:
         district_id = user.district_id
+        print(f"🔍 District Admin - filtering by district: {district_id}")
+    else:
+        # Basic user - return empty or apply other logic
+        print("🔍 Basic user - no access to attendance records")
+        return jsonify([]), 200
 
     records = attendance_controller.get_all_attendance(
         service_type=service_type,
-        state_id=state_id,
-        region_id=region_id,
-        district_id=district_id,
+        state_id=state_id,      # None for Super Admin = no filter ✅
+        region_id=region_id,    # None for Super Admin = no filter ✅
+        district_id=district_id, # None for Super Admin = no filter ✅
         group_id=group_id,
         old_group_id=old_group_id,
         year=year,
         month=month
     )
 
+    print(f"✅ Found {len(records)} attendance records")
     return jsonify([a.to_dict() for a in records]), 200
+
+
+
+# def get_attendance():
+#     user_id = get_jwt_identity()
+#     user = User.query.get(user_id)
+
+#     service_type = request.args.get("service_type")
+#     year = request.args.get("year")
+#     month = request.args.get("month")
+#     group_id = request.args.get("group_id")
+#     old_group_id = request.args.get("old_group_id")
+
+#     # Apply filters based on user role
+#     state_id = region_id = district_id = None
+    
+#     user_role_names = [role.name for role in user.roles] if user.roles else []
+    
+#     if "State Admin" in user_role_names:
+#         state_id = user.state_id
+#     elif "Regional Admin" in user_role_names:
+#         region_id = user.region_id
+#     elif "District Admin" in user_role_names:
+#         district_id = user.district_id
+
+#     records = attendance_controller.get_all_attendance(
+#         service_type=service_type,
+#         state_id=state_id,
+#         region_id=region_id,
+#         district_id=district_id,
+#         group_id=group_id,
+#         old_group_id=old_group_id,
+#         year=year,
+#         month=month
+#     )
+
+#     return jsonify([a.to_dict() for a in records]), 200
 
 @attendance_bp.route("/attendance/<int:attendance_id>", methods=["GET"])
 @jwt_required()
