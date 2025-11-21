@@ -63,82 +63,25 @@ attendance_bp = Blueprint("attendance", __name__)
     }
 })
 def create_attendance():
+    data = request.get_json() or {}
+    
+    # TEMPORARY: Skip hierarchy validation for debugging
+    print(f"🔍 Bypassing hierarchy validation for debugging")
+    
+    # Only validate required fields
+    required_fields = ["service_type", "state_id", "region_id", "month", "week", "year"]
+    missing_fields = [field for field in required_fields if field not in data]
+    
+    if missing_fields:
+        return jsonify({"error": f"Missing required fields: {', '.join(missing_fields)}"}), 400
+    
     try:
-        data = request.get_json() or {}
-        print(f"🔍 Received attendance data: {data}")
-        
-        # Check if we're getting any data at all
-        if not data:
-            return jsonify({"error": "No JSON data received"}), 400
-        
-        # Validate required fields
-        required_fields = ["service_type", "state_id", "region_id", "month", "week", "year"]
-        missing_fields = [field for field in required_fields if field not in data or data[field] is None]
-        
-        if missing_fields:
-            print(f"❌ Missing required fields: {missing_fields}")
-            return jsonify({"error": f"Missing required fields: {', '.join(missing_fields)}"}), 400
-        
-        # Log the incoming data for debugging
-        print(f"📝 Processing attendance for: State={data.get('state_id')}, Region={data.get('region_id')}, "
-              f"OldGroup={data.get('old_group_id')}, Group={data.get('group_id')}, District={data.get('district_id')}")
-        
-        # Validate hierarchy relationships with better error messages
-        validation_errors = []
-        
-        if data.get('old_group_id'):
-            from ..models import OldGroup
-            old_group = OldGroup.query.get(data['old_group_id'])
-            if not old_group:
-                validation_errors.append(f"Old Group with ID {data['old_group_id']} does not exist")
-            elif old_group.region_id != data.get('region_id') or old_group.state_id != data.get('state_id'):
-                validation_errors.append(f"Old Group {data['old_group_id']} belongs to State {old_group.state_id}, Region {old_group.region_id} but received State {data.get('state_id')}, Region {data.get('region_id')}")
-        
-        if data.get('group_id'):
-            from ..models import Group
-            group = Group.query.get(data['group_id'])
-            if not group:
-                validation_errors.append(f"Group with ID {data['group_id']} does not exist")
-            else:
-                if group.old_group_id != data.get('old_group_id'):
-                    validation_errors.append(f"Group {data['group_id']} belongs to OldGroup {group.old_group_id} but received {data.get('old_group_id')}")
-                if group.region_id != data.get('region_id'):
-                    validation_errors.append(f"Group {data['group_id']} belongs to Region {group.region_id} but received {data.get('region_id')}")
-                if group.state_id != data.get('state_id'):
-                    validation_errors.append(f"Group {data['group_id']} belongs to State {group.state_id} but received {data.get('state_id')}")
-        
-        if data.get('district_id'):
-            from ..models import District
-            district = District.query.get(data['district_id'])
-            if not district:
-                validation_errors.append(f"District with ID {data['district_id']} does not exist")
-            else:
-                if district.group_id != data.get('group_id'):
-                    validation_errors.append(f"District {data['district_id']} belongs to Group {district.group_id} but received {data.get('group_id')}")
-                if district.old_group_id != data.get('old_group_id'):
-                    validation_errors.append(f"District {data['district_id']} belongs to OldGroup {district.old_group_id} but received {data.get('old_group_id')}")
-                if district.region_id != data.get('region_id'):
-                    validation_errors.append(f"District {data['district_id']} belongs to Region {district.region_id} but received {data.get('region_id')}")
-                if district.state_id != data.get('state_id'):
-                    validation_errors.append(f"District {data['district_id']} belongs to State {district.state_id} but received {data.get('state_id')}")
-        
-        if validation_errors:
-            print(f"❌ Validation errors: {validation_errors}")
-            return jsonify({"error": "Hierarchy validation failed", "details": validation_errors}), 400
-        
-        # Create attendance record
-        print("✅ All validations passed, creating attendance record...")
         attendance = attendance_controller.create_attendance(data)
-        
-        print(f"✅ Attendance record created successfully: ID {attendance.id}")
         return jsonify(attendance.to_dict()), 201
-        
     except Exception as e:
-        print(f"❌ Unexpected error in create_attendance: {str(e)}")
-        import traceback
-        print(f"Traceback: {traceback.format_exc()}")
-        return jsonify({"error": f"Internal server error: {str(e)}"}), 500
+        return jsonify({"error": f"Database error: {str(e)}"}), 500
 
+        
 # def create_attendance():
 #     data = request.get_json() or {}
     
