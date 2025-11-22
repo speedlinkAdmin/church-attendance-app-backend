@@ -570,6 +570,103 @@ def get_districts():
         "state": d.region.state.name
     } for d in districts])
 
+
+@hierarchy_bp.route('/debug-group-admin', methods=['GET'])
+@jwt_required()
+def debug_group_admin():
+    """Debug route to check Group Admin access"""
+    user_id = get_jwt_identity()
+    current_user = User.query.get(user_id)
+    
+    if not current_user:
+        return jsonify({"error": "User not found"}), 404
+    
+    debug_info = {
+        "user": {
+            "id": current_user.id,
+            "email": current_user.email,
+            "roles": [r.name for r in current_user.roles],
+            "state_id": current_user.state_id,
+            "region_id": current_user.region_id,
+            "district_id": current_user.district_id,
+            "group_id": current_user.group_id,
+            "old_group_id": current_user.old_group_id
+        },
+        "access_tests": {}
+    }
+    
+    # Test what groups they can see
+    groups_query = restrict_by_access(Group.query, current_user)
+    debug_info["access_tests"]["groups"] = {
+        "query_sql": str(groups_query),
+        "count": groups_query.count(),
+        "groups": [{"id": g.id, "name": g.name} for g in groups_query.limit(5).all()]
+    }
+    
+    # Test what districts they can see
+    districts_query = restrict_by_access(District.query, current_user)
+    debug_info["access_tests"]["districts"] = {
+        "query_sql": str(districts_query),
+        "count": districts_query.count(),
+        "districts": [{"id": d.id, "name": d.name, "group_id": d.group_id} for d in districts_query.limit(5).all()]
+    }
+    
+    # Check their actual group details
+    if current_user.group_id:
+        user_group = Group.query.get(current_user.group_id)
+        debug_info["user_group_details"] = {
+            "id": user_group.id if user_group else None,
+            "name": user_group.name if user_group else None,
+            "state_id": user_group.state_id if user_group else None,
+            "region_id": user_group.region_id if user_group else None,
+            "old_group_id": user_group.old_group_id if user_group else None
+        }
+        
+        # Check districts in their group
+        if user_group:
+            group_districts = District.query.filter_by(group_id=user_group.id).all()
+            debug_info["districts_in_user_group"] = [
+                {"id": d.id, "name": d.name} for d in group_districts
+            ]
+    
+    return jsonify(debug_info)
+
+@hierarchy_bp.route('/test-group-access', methods=['GET'])
+@jwt_required()
+def test_group_access():
+    """Simple test to verify Group Admin access"""
+    user_id = get_jwt_identity()
+    current_user = User.query.get(user_id)
+    
+    if not current_user:
+        return jsonify({"error": "User not found"}), 404
+    
+    # Direct query - bypass access control to see what SHOULD be visible
+    if current_user.group_id:
+        user_group = Group.query.get(current_user.group_id)
+        districts_in_group = District.query.filter_by(group_id=current_user.group_id).all()
+        
+        return jsonify({
+            "user_group": {
+                "id": user_group.id,
+                "name": user_group.name,
+                "state_id": user_group.state_id,
+                "region_id": user_group.region_id
+            } if user_group else None,
+            "districts_in_group": [
+                {"id": d.id, "name": d.name} for d in districts_in_group
+            ],
+            "districts_count": len(districts_in_group),
+            "user_info": {
+                "group_id": current_user.group_id,
+                "roles": [r.name for r in current_user.roles]
+            }
+        })
+    else:
+        return jsonify({"error": "User has no group_id assigned"})
+
+        
+
 @hierarchy_bp.route('/debug-access', methods=['GET'])
 @jwt_required()
 def debug_access():
