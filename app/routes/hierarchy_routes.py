@@ -11,64 +11,219 @@ from app.models.user import User
 from app.models.youth_attendance import YouthAttendance
 from app.utils.access_control import require_role ##,restrict_by_access
 
+# def restrict_by_access(query, user):
+#     """
+#     COMPLETE ACCESS CONTROL - Handles all user roles in the hierarchy
+#     Hierarchy: Super Admin → State Admin → Region Admin → District Admin → Group Admin → Old Group Admin
+#     """
+#     print(f"🎯 ACCESS CONTROL for user {user.id} with roles: {[r.name for r in.user.roles]}")
+    
+#     if not user or not user.roles:
+#         print("❌ No user or roles - no access")
+#         return query.filter_by(id=None)
+    
+#     # Get normalized role names
+#     role_names = [r.name.lower() for r in user.roles]
+#     print(f"🎯 Normalized roles: {role_names}")
+    
+#     # Detect model type from query
+#     query_str = str(query)
+    
+#     # 🎯 SUPER ADMIN - NO RESTRICTIONS
+#     if "super admin" in role_names:
+#         print("🔓 SUPER ADMIN - Full access granted")
+#         return query
+    
+#     # 🎯 STATE ADMIN - Access to everything in their state
+#     elif "state admin" in role_names and user.state_id:
+#         print(f"🔐 STATE ADMIN - Filtering by state_id: {user.state_id}")
+#         if "FROM groups" in query_str:
+#             return query.filter(Group.state_id == user.state_id)
+#         elif "FROM districts" in query_str:
+#             return query.filter(District.state_id == user.state_id)
+#         elif "FROM regions" in query_str:
+#             return query.filter(Region.state_id == user.state_id)
+#         elif "FROM old_groups" in query_str:
+#             return query.filter(OldGroup.state_id == user.state_id)
+#         elif "FROM states" in query_str:
+#             return query.filter(State.id == user.state_id)
+#         else:
+#             return query.filter_by(id=None)
+    
+#     # 🎯 REGION ADMIN - Access to everything in their region
+#     elif "region admin" in role_names and user.region_id:
+#         print(f"🔐 REGION ADMIN - Filtering by region_id: {user.region_id}")
+#         if "FROM groups" in query_str:
+#             return query.filter(Group.region_id == user.region_id)
+#         elif "FROM districts" in query_str:
+#             return query.filter(District.region_id == user.region_id)
+#         elif "FROM old_groups" in query_str:
+#             return query.filter(OldGroup.region_id == user.region_id)
+#         elif "FROM regions" in query_str:
+#             return query.filter(Region.id == user.region_id)
+#         else:
+#             return query.filter_by(id=None)
+    
+#     # 🎯 DISTRICT ADMIN - Access to everything in their district
+#     elif "district admin" in role_names and user.district_id:
+#         print(f"🔐 DISTRICT ADMIN - Filtering by district_id: {user.district_id}")
+#         if "FROM groups" in query_str:
+#             return query.filter(Group.district_id == user.district_id)
+#         elif "FROM districts" in query_str:
+#             return query.filter(District.id == user.district_id)
+#         else:
+#             return query.filter_by(id=None)
+    
+#     # 🎯 GROUP ADMIN - Access to everything in their group (CURRENTLY WORKING)
+#     elif "group admin" in role_names and user.group_id:
+#         print(f"🔐 GROUP ADMIN - Filtering by group_id: {user.group_id}")
+#         if "FROM groups" in query_str:
+#             return query.filter(Group.id == user.group_id)
+#         elif "FROM districts" in query_str:
+#             return query.filter(District.group_id == user.group_id)
+#         else:
+#             return query.filter_by(id=None)
+    
+#     # 🎯 OLD GROUP ADMIN - Access to everything in their old group
+#     elif "old group admin" in role_names and user.old_group_id:
+#         print(f"🔐 OLD GROUP ADMIN - Filtering by old_group_id: {user.old_group_id}")
+#         if "FROM groups" in query_str:
+#             return query.filter(Group.old_group_id == user.old_group_id)
+#         elif "FROM districts" in query_str:
+#             return query.filter(District.old_group_id == user.old_group_id)
+#         elif "FROM old_groups" in query_str:
+#             return query.filter(OldGroup.id == user.old_group_id)
+#         else:
+#             return query.filter_by(id=None)
+    
+#     # 🚫 NO VALID ROLE OR MISSING HIERARCHY DATA
+#     print(f"🚫 No valid access - User has roles: {role_names} but missing hierarchy data")
+#     return query.filter_by(id=None)
+
 def restrict_by_access(query, user):
     """
-    FIXED INLINE VERSION - Compatible with your SQLAlchemy version
+    ENHANCED ACCESS CONTROL - Better model detection and role handling
     """
-    print(f"🎯 INLINE restrict_by_access CALLED")
-    print(f"🎯 User: {user.id}, Roles: {[r.name for r in user.roles]}")
+    print(f"🎯 ACCESS CONTROL for user {user.id}")
     
     if not user or not user.roles:
-        print("❌ No user or roles")
         return query.filter_by(id=None)
     
     role_names = [r.name.lower() for r in user.roles]
-    print(f"🎯 Normalized roles: {role_names}")
+    print(f"🎯 User roles: {role_names}")
+    print(f"🎯 User hierarchy - state: {user.state_id}, region: {user.region_id}, district: {user.district_id}, group: {user.group_id}, old_group: {user.old_group_id}")
     
-    # Get model class - COMPATIBLE VERSION
-    try:
-        # Try different ways to get the model class based on SQLAlchemy version
-        if hasattr(query, 'column_descriptions') and query.column_descriptions:
-            model_class = query.column_descriptions[0]['type']
-        elif hasattr(query, '_entity_zero'):
-            model_class = query._entity_zero().type
-        else:
-            # Fallback: get from the first column
-            model_class = query._raw_columns[0].class_
-        print(f"🎯 Model: {model_class.__name__}")
-    except Exception as e:
-        print(f"❌ Could not determine model class: {e}")
-        return query.filter_by(id=None)
+    # Try to detect model more reliably
+    query_str = str(query).lower()
     
-    # GROUP ADMIN LOGIC
-    if "group admin" in role_names and user.group_id:
-        print(f"✅ EXECUTING GROUP ADMIN LOGIC for group_id: {user.group_id}")
-        
-        if model_class == Group:
-            print(f"✅ Returning user's group: {user.group_id}")
+    # 🎯 SUPER ADMIN - NO RESTRICTIONS
+    if "super admin" in role_names:
+        print("🔓 SUPER ADMIN - Full access to all data")
+        return query
+    
+    # 🎯 STATE ADMIN
+    if "state admin" in role_names and user.state_id:
+        print(f"🔐 STATE ADMIN - Access to state_id: {user.state_id}")
+        if "from groups" in query_str:
+            return query.filter(Group.state_id == user.state_id)
+        elif "from districts" in query_str:
+            return query.filter(District.state_id == user.state_id)
+        elif "from regions" in query_str:
+            return query.filter(Region.state_id == user.state_id)
+        elif "from old_groups" in query_str:
+            return query.filter(OldGroup.state_id == user.state_id)
+        elif "from states" in query_str:
+            return query.filter(State.id == user.state_id)
+    
+    # 🎯 REGION ADMIN
+    elif "region admin" in role_names and user.region_id:
+        print(f"🔐 REGION ADMIN - Access to region_id: {user.region_id}")
+        if "from groups" in query_str:
+            return query.filter(Group.region_id == user.region_id)
+        elif "from districts" in query_str:
+            return query.filter(District.region_id == user.region_id)
+        elif "from old_groups" in query_str:
+            return query.filter(OldGroup.region_id == user.region_id)
+        elif "from regions" in query_str:
+            return query.filter(Region.id == user.region_id)
+    
+    # 🎯 DISTRICT ADMIN
+    elif "district admin" in role_names and user.district_id:
+        print(f"🔐 DISTRICT ADMIN - Access to district_id: {user.district_id}")
+        if "from groups" in query_str:
+            return query.filter(Group.district_id == user.district_id)
+        elif "from districts" in query_str:
+            return query.filter(District.id == user.district_id)
+    
+    # 🎯 GROUP ADMIN (WORKING)
+    elif "group admin" in role_names and user.group_id:
+        print(f"🔐 GROUP ADMIN - Access to group_id: {user.group_id}")
+        if "from groups" in query_str:
             return query.filter(Group.id == user.group_id)
-        elif model_class == District:
-            print(f"✅ Returning districts in group: {user.group_id}")
+        elif "from districts" in query_str:
             return query.filter(District.group_id == user.group_id)
-        elif model_class == State:
-            print(f"✅ Group Admin accessing State - returning empty (no direct access)")
-            return query.filter_by(id=None)
-        elif model_class == Region:
-            print(f"✅ Group Admin accessing Region - returning empty (no direct access)")
-            return query.filter_by(id=None)
-        elif model_class == OldGroup:
-            print(f"✅ Group Admin accessing OldGroup - returning empty (no direct access)")
-            return query.filter_by(id=None)
-        else:
-            print(f"❌ Unknown model for Group Admin: {model_class.__name__}")
-            return query.filter_by(id=None)
     
-    print(f"❌ No Group Admin role found or no group_id")
+    # 🎯 OLD GROUP ADMIN
+    elif "old group admin" in role_names and user.old_group_id:
+        print(f"🔐 OLD GROUP ADMIN - Access to old_group_id: {user.old_group_id}")
+        if "from groups" in query_str:
+            return query.filter(Group.old_group_id == user.old_group_id)
+        elif "from districts" in query_str:
+            return query.filter(District.old_group_id == user.old_group_id)
+        elif "from old_groups" in query_str:
+            return query.filter(OldGroup.id == user.old_group_id)
+    
+    print(f"🚫 No access granted for user {user.id}")
     return query.filter_by(id=None)
 
 
 hierarchy_bp = Blueprint('hierarchy_bp', __name__)
 
+
+@hierarchy_bp.route('/test-all-roles', methods=['GET'])
+@jwt_required()
+def test_all_roles():
+    """Test access control for current user across all models"""
+    user_id = get_jwt_identity()
+    current_user = User.query.get(user_id)
+    
+    if not current_user:
+        return jsonify({"error": "User not found"}), 404
+    
+    test_results = {}
+    models = [
+        ("States", State.query),
+        ("Regions", Region.query), 
+        ("OldGroups", OldGroup.query),
+        ("Groups", Group.query),
+        ("Districts", District.query)
+    ]
+    
+    for model_name, model_query in models:
+        restricted_query = restrict_by_access(model_query, current_user)
+        test_results[model_name] = {
+            "access_granted": restricted_query.count() > 0,
+            "count": restricted_query.count(),
+            "query": str(restricted_query),
+            "sample_data": [{"id": item.id, "name": getattr(item, 'name', 'N/A')} 
+                           for item in restricted_query.limit(3).all()]
+        }
+    
+    return jsonify({
+        "user_info": {
+            "id": current_user.id,
+            "email": current_user.email,
+            "roles": [r.name for r in current_user.roles],
+            "hierarchy": {
+                "state_id": current_user.state_id,
+                "region_id": current_user.region_id, 
+                "district_id": current_user.district_id,
+                "group_id": current_user.group_id,
+                "old_group_id": current_user.old_group_id
+            }
+        },
+        "access_test_results": test_results
+    })
 
 @hierarchy_bp.route('/test-simple-access', methods=['GET'])
 @jwt_required()
@@ -103,7 +258,7 @@ def test_simple_access():
         }
     })
 
-    
+
 ### ---------- STATES ----------
 @hierarchy_bp.route('/states', methods=['GET'])
 @jwt_required()
