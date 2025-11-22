@@ -11,30 +11,38 @@ from app.models.user import User
 from app.models.youth_attendance import YouthAttendance
 from app.utils.access_control import require_role ##,restrict_by_access
 
-# TEMPORARY: Replace the import with this inline function
 def restrict_by_access(query, user):
     """
-    INLINE VERSION - Guaranteed to be used
+    FIXED INLINE VERSION - Compatible with your SQLAlchemy version
     """
     print(f"🎯 INLINE restrict_by_access CALLED")
     print(f"🎯 User: {user.id}, Roles: {[r.name for r in user.roles]}")
     
     if not user or not user.roles:
+        print("❌ No user or roles")
         return query.filter_by(id=None)
     
     role_names = [r.name.lower() for r in user.roles]
     print(f"🎯 Normalized roles: {role_names}")
     
-    # Get model class
-    if not query._entities:
+    # Get model class - COMPATIBLE VERSION
+    try:
+        # Try different ways to get the model class based on SQLAlchemy version
+        if hasattr(query, 'column_descriptions') and query.column_descriptions:
+            model_class = query.column_descriptions[0]['type']
+        elif hasattr(query, '_entity_zero'):
+            model_class = query._entity_zero().type
+        else:
+            # Fallback: get from the first column
+            model_class = query._raw_columns[0].class_
+        print(f"🎯 Model: {model_class.__name__}")
+    except Exception as e:
+        print(f"❌ Could not determine model class: {e}")
         return query.filter_by(id=None)
-    
-    model_class = query._entities[0].type
-    print(f"🎯 Model: {model_class.__name__}")
     
     # GROUP ADMIN LOGIC
     if "group admin" in role_names and user.group_id:
-        print(f"✅ EXECUTING GROUP ADMIN LOGIC")
+        print(f"✅ EXECUTING GROUP ADMIN LOGIC for group_id: {user.group_id}")
         
         if model_class == Group:
             print(f"✅ Returning user's group: {user.group_id}")
@@ -42,16 +50,60 @@ def restrict_by_access(query, user):
         elif model_class == District:
             print(f"✅ Returning districts in group: {user.group_id}")
             return query.filter(District.group_id == user.group_id)
+        elif model_class == State:
+            print(f"✅ Group Admin accessing State - returning empty (no direct access)")
+            return query.filter_by(id=None)
+        elif model_class == Region:
+            print(f"✅ Group Admin accessing Region - returning empty (no direct access)")
+            return query.filter_by(id=None)
+        elif model_class == OldGroup:
+            print(f"✅ Group Admin accessing OldGroup - returning empty (no direct access)")
+            return query.filter_by(id=None)
         else:
             print(f"❌ Unknown model for Group Admin: {model_class.__name__}")
             return query.filter_by(id=None)
     
-    print(f"❌ No Group Admin role found")
+    print(f"❌ No Group Admin role found or no group_id")
     return query.filter_by(id=None)
 
 
 hierarchy_bp = Blueprint('hierarchy_bp', __name__)
 
+
+@hierarchy_bp.route('/test-simple-access', methods=['GET'])
+@jwt_required()
+def test_simple_access():
+    """Test the simple access control"""
+    user_id = get_jwt_identity()
+    current_user = User.query.get(user_id)
+    
+    if not current_user:
+        return jsonify({"error": "User not found"}), 404
+    
+    print("🧪 TESTING SIMPLE ACCESS CONTROL")
+    
+    # Test groups
+    groups_query = Group.query
+    restricted_groups = restrict_by_access(groups_query, current_user)
+    
+    # Test districts
+    districts_query = District.query
+    restricted_districts = restrict_by_access(districts_query, current_user)
+    
+    return jsonify({
+        "groups": {
+            "query": str(restricted_groups),
+            "count": restricted_groups.count(),
+            "data": [{"id": g.id, "name": g.name} for g in restricted_groups.all()]
+        },
+        "districts": {
+            "query": str(restricted_districts),
+            "count": restricted_districts.count(),
+            "data": [{"id": d.id, "name": d.name} for d in restricted_districts.all()]
+        }
+    })
+
+    
 ### ---------- STATES ----------
 @hierarchy_bp.route('/states', methods=['GET'])
 @jwt_required()
