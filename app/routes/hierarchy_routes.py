@@ -665,7 +665,72 @@ def test_group_access():
     else:
         return jsonify({"error": "User has no group_id assigned"})
 
+@hierarchy_bp.route('/test-direct-groups', methods=['GET'])
+@jwt_required()
+def test_direct_groups():
+    """Test groups without access control"""
+    user_id = get_jwt_identity()
+    current_user = User.query.get(user_id)
+    
+    if not current_user:
+        return jsonify({"error": "User not found"}), 404
+    
+    # Direct query - no access control
+    if current_user.group_id:
+        groups = Group.query.filter(Group.id == current_user.group_id).all()
+        districts = District.query.filter(District.group_id == current_user.group_id).all()
         
+        return jsonify({
+            "direct_groups": [{"id": g.id, "name": g.name} for g in groups],
+            "direct_districts": [{"id": d.id, "name": d.name} for d in districts],
+            "user_info": {
+                "group_id": current_user.group_id,
+                "roles": [r.name for r in current_user.roles]
+            }
+        })
+    
+    return jsonify({"error": "No group_id"})
+
+@hierarchy_bp.route('/test-restrict-function', methods=['GET'])
+@jwt_required()
+def test_restrict_function():
+    """Test the restrict_by_access function directly"""
+    user_id = get_jwt_identity()
+    current_user = User.query.get(user_id)
+    
+    if not current_user:
+        return jsonify({"error": "User not found"}), 404
+    
+    # Test the function directly
+    print("🧪 TESTING restrict_by_access FUNCTION DIRECTLY")
+    
+    # Test with Group query
+    group_query = Group.query
+    restricted_group_query = restrict_by_access(group_query, current_user)
+    
+    # Test with District query  
+    district_query = District.query
+    restricted_district_query = restrict_by_access(district_query, current_user)
+    
+    return jsonify({
+        "user": {
+            "id": current_user.id,
+            "group_id": current_user.group_id,
+            "roles": [r.name for r in current_user.roles]
+        },
+        "group_test": {
+            "original_query": str(group_query),
+            "restricted_query": str(restricted_group_query),
+            "result_count": restricted_group_query.count()
+        },
+        "district_test": {
+            "original_query": str(district_query),
+            "restricted_query": str(restricted_district_query),
+            "result_count": restricted_district_query.count()
+        }
+    })
+    
+          
 
 @hierarchy_bp.route('/debug-access', methods=['GET'])
 @jwt_required()
