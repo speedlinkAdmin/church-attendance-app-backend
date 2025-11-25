@@ -811,9 +811,26 @@ def get_districts():
         "name": d.name,
         "code": d.code,
         "leader": d.leader,
-        "region": d.region.name,
-        "state": d.region.state.name
+        "region": d.region.name if d.region else None,
+        "state": d.state.name if d.state else None,
+        "old_group": d.old_group.name if d.old_group else None,
+        "group": d.group.name if d.group else None,
+        # Optional: Include IDs for reference
+        "region_id": d.region_id,
+        "state_id": d.state_id,
+        "old_group_id": d.old_group_id,
+        "group_id": d.group_id
     } for d in districts])
+
+    # return jsonify([{
+    #     "id": d.id,
+    #     "name": d.name,
+    #     "code": d.code,
+    #     "leader": d.leader,
+    #     "region": d.region.name,
+    #     "state": d.region.state.name,
+    #     "old_group": d.region
+    # } for d in districts])
 
 
 @hierarchy_bp.route('/debug-group-admin', methods=['GET'])
