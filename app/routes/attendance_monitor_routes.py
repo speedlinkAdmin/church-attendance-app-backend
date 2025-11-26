@@ -1,15 +1,17 @@
 from flask import Blueprint, jsonify
 from app.controllers.attendance_monitor_controller import get_attendance_monitor_summary
 from app.controllers.reminder_controller import send_manual_reminders, send_targeted_reminders
+from app.models.hierarchy import Group, OldGroup, District, Region, State
+from app.models.user import User    
 from app.utils.access_control import require_role
 from flasgger import swag_from
-from flask_jwt_extended import jwt_required
+from flask_jwt_extended import get_jwt_identity, jwt_required
 
 monitor_bp = Blueprint("monitor_bp", __name__)
 
+
 @monitor_bp.get("/monitor/attendance")
 @jwt_required()
-# @require_role(["super admin", "state admin"])
 @swag_from({
     "tags": ["Attendance Monitoring"],
     "summary": "Get attendance submission summary",
@@ -39,7 +41,210 @@ monitor_bp = Blueprint("monitor_bp", __name__)
     }
 })
 def attendance_monitor():
-    return jsonify(get_attendance_monitor_summary()), 200
+    current_user_id = get_jwt_identity()
+    current_user = User.query.get(current_user_id)
+    
+    if not current_user:
+        return jsonify({"error": "User not found"}), 404
+    
+    print(f"🔍 Attendance Monitor - Current user: {current_user.id}, Roles: {[r.name for r in current_user.roles]}")
+    print(f"🔍 User hierarchy - State: {current_user.state_id}, Region: {current_user.region_id}, District: {current_user.district_id}, Group: {current_user.group_id}, OldGroup: {current_user.old_group_id}")
+    
+    # Get the full summary first
+    full_summary = get_attendance_monitor_summary()
+    
+    # Check if user is Super Admin
+    user_roles = [role.name for role in current_user.roles]
+    is_super_admin = "Super Admin" in user_roles
+    
+    if is_super_admin:
+        print("🎯 Super Admin detected - returning full summary")
+        return jsonify(full_summary), 200
+    
+    # For non-Super Admins, filter based on hierarchy
+    print("👤 Regular admin - filtering summary based on hierarchy")
+    
+    filtered_summary = {
+        "states": [],
+        "regions": [],
+        "districts": [],
+        "groups": [],
+        "old_groups": []
+    }
+    
+    if "State Admin" in user_roles:
+        if not current_user.state_id:
+            return jsonify({"error": "State Admin must have a state assigned"}), 400
+        
+        print(f"🔐 State Admin - filtering for state_id: {current_user.state_id}")
+        
+        # Filter states - only show user's state
+        filtered_summary["states"] = [
+            state for state in full_summary["states"] 
+            if state["id"] == current_user.state_id
+        ]
+        
+        # Filter regions - only show regions in user's state
+        user_state_regions = Region.query.filter_by(state_id=current_user.state_id).all()
+        region_ids = [region.id for region in user_state_regions]
+        filtered_summary["regions"] = [
+            region for region in full_summary["regions"]
+            if region["id"] in region_ids
+        ]
+        
+        # Filter districts - only show districts in user's state
+        user_state_districts = District.query.filter_by(state_id=current_user.state_id).all()
+        district_ids = [district.id for district in user_state_districts]
+        filtered_summary["districts"] = [
+            district for district in full_summary["districts"]
+            if district["id"] in district_ids
+        ]
+        
+        # Filter groups - only show groups in user's state
+        user_state_groups = Group.query.filter_by(state_id=current_user.state_id).all()
+        group_ids = [group.id for group in user_state_groups]
+        filtered_summary["groups"] = [
+            group for group in full_summary["groups"]
+            if group["id"] in group_ids
+        ]
+        
+        # Filter old_groups - only show old_groups in user's state
+        user_state_old_groups = OldGroup.query.filter_by(state_id=current_user.state_id).all()
+        old_group_ids = [old_group.id for old_group in user_state_old_groups]
+        filtered_summary["old_groups"] = [
+            old_group for old_group in full_summary["old_groups"]
+            if old_group["id"] in old_group_ids
+        ]
+        
+    elif "Region Admin" in user_roles:
+        if not current_user.state_id or not current_user.region_id:
+            return jsonify({"error": "Region Admin must have state and region assigned"}), 400
+        
+        print(f"🔐 Region Admin - filtering for region_id: {current_user.region_id}")
+        
+        # Filter regions - only show user's region
+        filtered_summary["regions"] = [
+            region for region in full_summary["regions"]
+            if region["id"] == current_user.region_id
+        ]
+        
+        # Filter districts - only show districts in user's region
+        user_region_districts = District.query.filter_by(region_id=current_user.region_id).all()
+        district_ids = [district.id for district in user_region_districts]
+        filtered_summary["districts"] = [
+            district for district in full_summary["districts"]
+            if district["id"] in district_ids
+        ]
+        
+        # Filter groups - only show groups in user's region
+        user_region_groups = Group.query.filter_by(region_id=current_user.region_id).all()
+        group_ids = [group.id for group in user_region_groups]
+        filtered_summary["groups"] = [
+            group for group in full_summary["groups"]
+            if group["id"] in group_ids
+        ]
+        
+        # Filter old_groups - only show old_groups in user's region
+        user_region_old_groups = OldGroup.query.filter_by(region_id=current_user.region_id).all()
+        old_group_ids = [old_group.id for old_group in user_region_old_groups]
+        filtered_summary["old_groups"] = [
+            old_group for old_group in full_summary["old_groups"]
+            if old_group["id"] in old_group_ids
+        ]
+        
+    elif "District Admin" in user_roles:
+        if not all([current_user.state_id, current_user.region_id, current_user.district_id]):
+            return jsonify({"error": "District Admin must have complete hierarchy assigned"}), 400
+        
+        print(f"🔐 District Admin - filtering for district_id: {current_user.district_id}")
+        
+        # Filter districts - only show user's district
+        filtered_summary["districts"] = [
+            district for district in full_summary["districts"]
+            if district["id"] == current_user.district_id
+        ]
+        
+        # Filter groups - only show groups in user's district
+        user_district_groups = Group.query.filter_by(district_id=current_user.district_id).all()
+        group_ids = [group.id for group in user_district_groups]
+        filtered_summary["groups"] = [
+            group for group in full_summary["groups"]
+            if group["id"] in group_ids
+        ]
+        
+    elif "Group Admin" in user_roles:
+        if not all([current_user.state_id, current_user.region_id, current_user.old_group_id, current_user.group_id]):
+            return jsonify({"error": "Group Admin must have complete hierarchy assigned (state, region, old_group, group)"}), 400
+        
+        print(f"🔐 Group Admin - filtering for group_id: {current_user.group_id}")
+        
+        # Filter groups - only show user's group
+        filtered_summary["groups"] = [
+            group for group in full_summary["groups"]
+            if group["id"] == current_user.group_id
+        ]
+        
+    elif "Old Group Admin" in user_roles:
+        if not all([current_user.state_id, current_user.region_id, current_user.old_group_id]):
+            return jsonify({"error": "Old Group Admin must have state, region, and old_group assigned"}), 400
+        
+        print(f"🔐 Old Group Admin - filtering for old_group_id: {current_user.old_group_id}")
+        
+        # Filter old_groups - only show user's old_group
+        filtered_summary["old_groups"] = [
+            old_group for old_group in full_summary["old_groups"]
+            if old_group["id"] == current_user.old_group_id
+        ]
+        
+        # Filter groups - only show groups in user's old_group
+        user_old_group_groups = Group.query.filter_by(old_group_id=current_user.old_group_id).all()
+        group_ids = [group.id for group in user_old_group_groups]
+        filtered_summary["groups"] = [
+            group for group in full_summary["groups"]
+            if group["id"] in group_ids
+        ]
+        
+    else:
+        return jsonify({"error": "Insufficient permissions to view attendance monitor"}), 403
+    
+    print(f"🔍 Returning filtered summary with counts - States: {len(filtered_summary['states'])}, Regions: {len(filtered_summary['regions'])}, Districts: {len(filtered_summary['districts'])}, Groups: {len(filtered_summary['groups'])}, Old Groups: {len(filtered_summary['old_groups'])}")
+    
+    return jsonify(filtered_summary), 200
+
+    
+# @monitor_bp.get("/monitor/attendance")
+# @jwt_required()
+# # @require_role(["super admin", "state admin"])
+# @swag_from({
+#     "tags": ["Attendance Monitoring"],
+#     "summary": "Get attendance submission summary",
+#     "description": "Returns a summary of which states, regions, districts, groups, and old groups have submitted or not submitted attendance.",
+#     "security": [{"BearerAuth": []}],
+#     "responses": {
+#         200: {
+#             "description": "Attendance summary data",
+#             "examples": {
+#                 "application/json": {
+#                     "submitted": {
+#                         "states": ["Lagos", "Rivers"],
+#                         "regions": ["Region 1"],
+#                         "districts": ["District 4"],
+#                         "groups": ["Group A"]
+#                     },
+#                     "pending": {
+#                         "states": ["Abuja"],
+#                         "regions": ["Region 3"],
+#                         "districts": ["District 6"],
+#                         "groups": ["Group B"]
+#                     }
+#                 }
+#             }
+#         },
+#         403: {"description": "Unauthorized — role not allowed"},
+#     }
+# })
+# def attendance_monitor():
+#     return jsonify(get_attendance_monitor_summary()), 200
 
 
 @monitor_bp.post("/monitor/remind/<entity_type>")
