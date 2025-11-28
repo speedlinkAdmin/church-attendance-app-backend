@@ -2,7 +2,7 @@
 from flask import Blueprint, request, jsonify
 from werkzeug.utils import secure_filename
 import importlib
-from app.utils.excel_importer import import_hierarchy_from_excel
+# from app.utils.excel_importer import import_hierarchy_from_excel
 # Force reload the module
 # importlib.reload(utils.excel_importer)
 from app.utils.excel_importer_new import import_hierarchy_from_excel
