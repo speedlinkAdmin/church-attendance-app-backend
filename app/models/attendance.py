@@ -23,6 +23,11 @@ class Attendance(db.Model):
     youth_girls = db.Column(db.Integer, default=0)
     children_boys = db.Column(db.Integer, default=0)
     children_girls = db.Column(db.Integer, default=0)
+
+    # ✅ NEW
+    new_comers = db.Column(db.Integer, default=0)   # just a tracker
+    tithe_offering = db.Column(db.Numeric(12, 2), default=0.00)
+
     year = db.Column(db.Integer, nullable=False)
 
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
@@ -52,6 +57,8 @@ class Attendance(db.Model):
             "youth_girls": self.youth_girls,
             "children_boys": self.children_boys,
             "children_girls": self.children_girls,
+            "new_comers": self.new_comers,
+        "tithe_offering": float(self.tithe_offering),
             "year": self.year,
             "created_at": self.created_at.isoformat(),
         }

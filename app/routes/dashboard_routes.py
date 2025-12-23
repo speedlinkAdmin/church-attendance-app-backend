@@ -3,6 +3,8 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
 from ..models import User, Attendance, State, Region, District, Group, OldGroup
 from ..extensions import db
 from flasgger import swag_from
+from sqlalchemy import func
+
 
 dashboard_bp = Blueprint("dashboard", __name__)
 
@@ -68,6 +70,20 @@ def get_dashboard_summary():
     # Build queries based on access scope
     users_query = User.query
     attendance_query = Attendance.query
+
+    attendance_totals = attendance_query.with_entities(
+    func.sum(
+        Attendance.men +
+        Attendance.women +
+        Attendance.youth_boys +
+        Attendance.youth_girls +
+        Attendance.children_boys +
+        Attendance.children_girls
+    ).label("total_attendance"),
+    func.sum(Attendance.new_comers).label("total_new_comers"),
+    func.coalesce(func.sum(Attendance.tithe_offering), 0).label("total_tithe_offering")
+).first()
+
     
     if access_scope["scope"] == "state":
         users_query = users_query.filter_by(state_id=user.state_id)
@@ -82,6 +98,9 @@ def get_dashboard_summary():
     summary = {
         "total_users": users_query.count(),
         "total_attendance_records": attendance_query.count(),
+        "total_attendance": int(attendance_totals.total_attendance or 0),
+        "total_new_comers": int(attendance_totals.total_new_comers or 0),
+        "total_tithe_offering": float(attendance_totals.total_tithe_offering or 0),
         "access_level": user.access_level(),
         "user_scope": access_scope["scope"]
     }

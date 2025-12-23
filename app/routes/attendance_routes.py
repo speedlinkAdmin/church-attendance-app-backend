@@ -11,122 +11,6 @@ from flasgger import swag_from
 
 attendance_bp = Blueprint("attendance", __name__)
 
-# @attendance_bp.route("/attendance", methods=["POST"])
-# @jwt_required()
-# @swag_from({
-#     "tags": ["Attendance"],
-#     "summary": "Create attendance record",
-#     "description": "Creates a new attendance record for a specified service type and hierarchy level.",
-#     "parameters": [
-#         {
-#             "name": "body",
-#             "in": "body",
-#             "required": True,
-#             "schema": {
-#                 "type": "object",
-#                 "properties": {
-#                     "service_type": {"type": "string", "example": "Sunday Service"},
-#                     "state_id": {"type": "integer", "example": 1},
-#                     "region_id": {"type": "integer", "example": 2},
-#                     "district_id": {"type": "integer", "example": 3},
-#                     "group_id": {"type": "integer", "example": 4},
-#                     "old_group_id": {"type": "integer", "example": 5},
-#                     "month": {"type": "string", "example": "October"},
-#                     "week": {"type": "integer", "example": 1},
-#                     "men": {"type": "integer", "example": 45},
-#                     "women": {"type": "integer", "example": 60},
-#                     "youth_boys": {"type": "integer", "example": 20},
-#                     "youth_girls": {"type": "integer", "example": 25},
-#                     "children_boys": {"type": "integer", "example": 30},
-#                     "children_girls": {"type": "integer", "example": 28},
-#                     "year": {"type": "integer", "example": 2025}
-#                 },
-#                 "required": ["service_type", "state_id", "region_id", "month", "week", "year"]
-#                 # CHANGED: district_id is no longer required since it's at the bottom of hierarchy
-#             }
-#         }
-#     ],
-#     "responses": {
-#         "201": {
-#             "description": "Attendance record created successfully",
-#             "examples": {
-#                 "application/json": {
-#                     "id": 1,
-#                     "service_type": "Sunday Service",
-#                     "month": "October",
-#                     "week": 1,
-#                     "year": 2025
-#                 }
-#             }
-#         },
-#         "400": {"description": "Invalid data provided"}
-#     }
-# })
-# def create_attendance():
-#     data = request.get_json() or {}
-#     current_user_id = get_jwt_identity()
-#     current_user = User.query.get(current_user_id)
-    
-#     print(f"🔍 Current user: {current_user.id}, Roles: {[r.name for r in current_user.roles]}")
-#     print(f"🔍 User hierarchy - State: {current_user.state_id}, Region: {current_user.region_id}, District: {current_user.district_id}")
-#     print(f"🔍 Received data: {data}")
-    
-#     # Only validate basic required fields for ALL users
-#     required_fields = ["service_type", "month", "week", "year"]
-#     missing_fields = [field for field in required_fields if field not in data]
-    
-#     if missing_fields:
-#         return jsonify({"error": f"Missing required fields: {', '.join(missing_fields)}"}), 400
-    
-#     # Check if user is Super Admin
-#     user_roles = [role.name for role in current_user.roles]
-#     is_super_admin = "Super Admin" in user_roles
-    
-#     if is_super_admin:
-#         print("🎯 Super Admin detected - bypassing all hierarchy constraints")
-#         # Super Admin can create records with any hierarchy values (including null)
-#         # Use whatever values are provided in the request, no auto-population needed
-#         # The provided state_id, region_id, district_id can be whatever the Super Admin wants
-        
-#     else:
-#         # For non-Super Admins, apply hierarchy constraints
-#         print("👤 Regular admin - applying hierarchy constraints")
-        
-#         if "State Admin" in user_roles:
-#             if not current_user.state_id:
-#                 return jsonify({"error": "State Admin must have a state assigned"}), 400
-#             # Auto-populate state_id, allow provided region_id or null
-#             data['state_id'] = current_user.state_id
-            
-#         elif "Region Admin" in user_roles:
-#             if not current_user.state_id or not current_user.region_id:
-#                 return jsonify({"error": "Region Admin must have state and region assigned"}), 400
-#             # Auto-populate both state and region
-#             data['state_id'] = current_user.state_id
-#             data['region_id'] = current_user.region_id
-            
-#         elif "District Admin" in user_roles:
-#             if not all([current_user.state_id, current_user.region_id, current_user.district_id]):
-#                 return jsonify({"error": "District Admin must have complete hierarchy assigned"}), 400
-#             # Auto-populate all hierarchy levels
-#             data['state_id'] = current_user.state_id
-#             data['region_id'] = current_user.region_id
-#             data['district_id'] = current_user.district_id
-            
-#         else:
-#             return jsonify({"error": "Insufficient permissions to create attendance records"}), 403
-    
-#     print(f"🔍 Final data being saved: {data}")
-    
-#     try:
-#         attendance = attendance_controller.create_attendance(data)
-#         return jsonify(attendance.to_dict()), 201
-#     except Exception as e:
-#         print(f"❌ Database error: {str(e)}")
-#         import traceback
-#         print(f"Traceback: {traceback.format_exc()}")
-#         return jsonify({"error": f"Database error: {str(e)}"}), 500
-
 @attendance_bp.route("/attendance", methods=["POST"])
 @jwt_required()
 @swag_from({
@@ -155,6 +39,18 @@ attendance_bp = Blueprint("attendance", __name__)
                     "youth_girls": {"type": "integer", "example": 25},
                     "children_boys": {"type": "integer", "example": 30},
                     "children_girls": {"type": "integer", "example": 28},
+                    "new_comers": {
+                    "type": "integer",
+                    "example": 12,
+                    "description": "Number of first-time attendees (already included in attendance)"
+                    },
+                    "tithe_offering": {
+                    "type": "number",
+                    "format": "float",
+                    "example": 250000.00,
+                    "description": "Total tithe and offering collected"
+                    },
+
                     "year": {"type": "integer", "example": 2025}
                 },
                 "required": ["service_type", "state_id", "region_id", "month", "week", "year"]

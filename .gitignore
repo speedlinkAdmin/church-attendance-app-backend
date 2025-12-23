@@ -8,3 +8,7 @@ db.sqlite3
 
 .env
 *.env
+
+init_database.py
+
+create_super_admins.py

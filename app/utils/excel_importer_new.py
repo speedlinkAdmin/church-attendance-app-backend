@@ -16,7 +16,7 @@ def create_group_user(group_name, group, district=None):
     Handles cases where 'group' is already in the name
     """
     # Clean group name for email
-    clean_name = group_name.lower().replace(' ', '_').replace("'", "").replace("-", "_")
+    clean_name = group_name.lower().replace(' ', '').replace("'", "").replace("-", "")
     
     # 🎯 REMOVE "group" suffix if already present to avoid duplication
     if clean_name.endswith('_group'):

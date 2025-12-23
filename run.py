@@ -31,34 +31,6 @@ def create_admin(email, password, name):
     db.session.commit()
     print("Admin created:", email)
 
-# @app.cli.command("bootstrap-roles")
-# @with_appcontext
-# def bootstrap_roles():
-#     """Create common roles and example permissions."""
-#     roles = {
-#         "admin": ["states.create", "states.update", "states.delete", "states.view"],
-#         "state_manager": ["states.create", "states.update", "states.view"],
-#         "viewer": ["states.view"]
-#     }
-
-#     for role_name, perms in roles.items():
-#         role = Role.query.filter_by(name=role_name).first()
-#         if not role:
-#             role = Role(name=role_name, description=f"{role_name} role")
-#             db.session.add(role)
-#             db.session.commit()
-#             print("Created role:", role_name)
-#         for p in perms:
-#             perm = Permission.query.filter_by(code=p).first()
-#             if not perm:
-#                 perm = Permission(code=p, description=f"Permission for {p}")
-#                 db.session.add(perm)
-#                 db.session.commit()
-#             if perm not in role.permissions:
-#                 role.permissions.append(perm)
-#         db.session.commit()
-#     print("Bootstrap complete.")
-
 @app.cli.command("bootstrap-roles")
 @with_appcontext
 def bootstrap_roles():
