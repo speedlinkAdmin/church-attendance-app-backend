@@ -57,8 +57,8 @@ class Attendance(db.Model):
             "youth_girls": self.youth_girls,
             "children_boys": self.children_boys,
             "children_girls": self.children_girls,
-            "new_comers": self.new_comers,
-        "tithe_offering": float(self.tithe_offering),
+            "new_comers": int(self.new_comers or 0),
+            "tithe_offering": float(self.tithe_offering or 0),
             "year": self.year,
             "created_at": self.created_at.isoformat(),
         }
