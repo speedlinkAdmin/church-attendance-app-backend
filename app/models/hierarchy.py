@@ -9,6 +9,8 @@ class State(db.Model):
     name = db.Column(db.String(100), nullable=False)
     code = db.Column(db.String(20),  nullable=False)
     leader = db.Column(db.String(100), nullable=True)
+    leader_email = db.Column(db.String(120), nullable=True)
+    leader_phone = db.Column(db.String(20), nullable=True)
 
     # Relationships
     regions = db.relationship('Region', back_populates='state', lazy=True)
@@ -17,7 +19,7 @@ class State(db.Model):
     districts = db.relationship('District', back_populates='state', lazy=True)
 
     def to_dict(self):
-        return {"id": self.id, "name": self.name, "code": self.code, "leader": self.leader}
+        return {"id": self.id, "name": self.name, "code": self.code, "leader": self.leader, "leader_email": self.leader_email, "leader_phone": self.leader_phone}
 
 
 # =========================
@@ -29,6 +31,8 @@ class Region(db.Model):
     name = db.Column(db.String(100), nullable=False)
     code = db.Column(db.String(20), nullable=False)
     leader = db.Column(db.String(100), nullable=True)
+    leader_email = db.Column(db.String(120), nullable=True)
+    leader_phone = db.Column(db.String(20), nullable=True)
     state_id = db.Column(db.Integer, db.ForeignKey('states.id'), nullable=False)
 
     # Relationships
@@ -38,7 +42,7 @@ class Region(db.Model):
     groups = db.relationship('Group', back_populates='region', lazy=True)
 
     def to_dict(self):
-        return {"id": self.id, "name": self.name, "code": self.code, "leader": self.leader, "state_id": self.state_id}
+        return {"id": self.id, "name": self.name, "code": self.code, "leader": self.leader, "state_id": self.state_id, "leader_email": self.leader_email, "leader_phone": self.leader_phone}
 
 
 # =========================
@@ -50,6 +54,8 @@ class OldGroup(db.Model):
     name = db.Column(db.String(100), nullable=False)
     code = db.Column(db.String(20), nullable=False)
     leader = db.Column(db.String(100), nullable=True)
+    leader_email = db.Column(db.String(120), nullable=True)
+    leader_phone = db.Column(db.String(20), nullable=True)
     state_id = db.Column(db.Integer, db.ForeignKey('states.id'), nullable=False)
     region_id = db.Column(db.Integer, db.ForeignKey('regions.id'), nullable=False)
 
@@ -65,6 +71,8 @@ class OldGroup(db.Model):
             "name": self.name,
             "code": self.code,
             "leader": self.leader,
+            "leader_email": self.leader_email,
+            "leader_phone": self.leader_phone,
             "state_id": self.state_id,
             "region_id": self.region_id
         }
@@ -79,6 +87,8 @@ class Group(db.Model):
     name = db.Column(db.String(100), nullable=False)
     code = db.Column(db.String(20), nullable=False)
     leader = db.Column(db.String(100), nullable=True)
+    leader_email = db.Column(db.String(120), nullable=True)
+    leader_phone = db.Column(db.String(20), nullable=True)
     state_id = db.Column(db.Integer, db.ForeignKey('states.id'), nullable=False)
     region_id = db.Column(db.Integer, db.ForeignKey('regions.id'), nullable=False)
     old_group_id = db.Column(db.Integer, db.ForeignKey('old_groups.id'), nullable=False)
@@ -95,6 +105,8 @@ class Group(db.Model):
             "name": self.name,
             "code": self.code,
             "leader": self.leader,
+            "leader_email": self.leader_email,
+            "leader_phone": self.leader_phone,
             "state_id": self.state_id,
             "region_id": self.region_id,
             "old_group_id": self.old_group_id
@@ -110,6 +122,8 @@ class District(db.Model):
     name = db.Column(db.String(100), nullable=False)
     code = db.Column(db.String(20),  nullable=False)
     leader = db.Column(db.String(100), nullable=True)
+    leader_email = db.Column(db.String(120), nullable=True)
+    leader_phone = db.Column(db.String(20), nullable=True)
     state_id = db.Column(db.Integer, db.ForeignKey('states.id'), nullable=False)
     region_id = db.Column(db.Integer, db.ForeignKey('regions.id'), nullable=False)
     old_group_id = db.Column(db.Integer, db.ForeignKey('old_groups.id'), nullable=False)
@@ -127,6 +141,8 @@ class District(db.Model):
             "name": self.name,
             "code": self.code,
             "leader": self.leader,
+            "leader_email": self.leader_email,
+            "leader_phone": self.leader_phone,
             "state_id": self.state_id,
             "region_id": self.region_id,
             "old_group_id": self.old_group_id,

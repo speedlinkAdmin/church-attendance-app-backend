@@ -298,7 +298,9 @@ def get_states():
         "id": s.id,
         "name": s.name,
         "code": s.code,
-        "leader": s.leader
+        "leader": s.leader,
+        "leader_email": s.leader_email,
+        "leader_phone": s.leader_phone
     } for s in states])
 
 @hierarchy_bp.route('/states', methods=['POST'])
@@ -340,7 +342,7 @@ def create_state():
         description: Invalid or missing fields
     """
     data = request.get_json()
-    new_state = State(name=data['name'], code=data['code'], leader=data.get('leader'))
+    new_state = State(name=data['name'], code=data['code'], leader=data.get('leader'), leader_email=data.get('leader_email'), leader_phone=data.get('leader_phone'))
     db.session.add(new_state)
     db.session.commit()
     return jsonify({"message": "State created successfully"}), 201
@@ -375,7 +377,26 @@ def upload_states():
     file = request.files['file']
     df = pd.read_excel(BytesIO(file.read())) if file.filename.endswith('.xlsx') else pd.read_csv(file)
     for _, row in df.iterrows():
-        state = State(name=row['name'], code=row['code'], leader=row.get('leader'))
+        # state = State(name=row['name'], code=row['code'], leader=row.get('leader'))
+        # db.session.add(state)
+
+        name = str(row['name']).strip()
+        code = str(row['code']).strip()
+        leader = row.get('leader')
+        leader_email = row.get('leader_email')
+        leader_phone = row.get('leader_phone')
+        existing_state = State.query.filter(
+        (State.name == name) | (State.code == code)
+        ).first()
+
+        if existing_state:
+            return jsonify({
+                "error": f"State '{name}' already exists"
+                }), 409
+
+            continue  # or update instead
+
+        state = State(name=name, code=code, leader=leader, leader_email=leader_email, leader_phone=leader_phone)
         db.session.add(state)
     db.session.commit()
     return jsonify({"message": "States uploaded successfully"}), 201
@@ -419,6 +440,8 @@ def update_state(id):
     state.name = data.get("name", state.name)
     state.code = data.get("code", state.code)
     state.leader = data.get("leader", state.leader)
+    state.leader_email = data.get("leader_email", state.leader_email)
+    state.leader_phone = data.get("leader_phone", state.leader_phone)
     db.session.commit()
     return jsonify(state.to_dict()), 200
 
@@ -510,6 +533,8 @@ def create_region():
         name=data['name'],
         code=data['code'],
         leader=data.get('leader'),
+        leader_email=data.get('leader_email'),
+        leader_phone=data.get('leader_phone'),
         state_id=data['state_id']
     )
     db.session.add(region)
@@ -568,6 +593,8 @@ def get_regions():
         "name": r.name,
         "code": r.code,
         "leader": r.leader,
+        "leader_email": r.leader_email,
+        "leader_phone": r.leader_phone,
         "state": r.state.name
     } for r in regions])
 
@@ -621,6 +648,8 @@ def update_region(id):
     region.name = data.get("name", region.name)
     region.code = data.get("code", region.code)
     region.leader = data.get("leader", region.leader)
+    region.leader_email = data.get("leader_email", region.leader_email)
+    region.leader_phone = data.get("leader_phone", region.leader_phone)
     db.session.commit()
     return jsonify(region.to_dict()), 200
 
@@ -741,6 +770,8 @@ def create_district():
         name=data['name'],
         code=data['code'],
         leader=data.get('leader'),
+        leader_email=data.get('leader_email'),
+        leader_phone=data.get('leader_phone'),
         state_id=data['state_id'],
         region_id=data['region_id'],
         old_group_id=data.get('old_group_id'),
@@ -811,6 +842,8 @@ def get_districts():
         "name": d.name,
         "code": d.code,
         "leader": d.leader,
+        "leader_email": d.leader_email,
+        "leader_phone": d.leader_phone,
         "region": d.region.name if d.region else None,
         "state": d.state.name if d.state else None,
         "old_group": d.old_group.name if d.old_group else None,
@@ -1102,6 +1135,8 @@ def update_district(id):
     district.name = data.get("name", district.name)
     district.code = data.get("code", district.code)
     district.leader = data.get("leader", district.leader)
+    district.leader_email = data.get("leader_email", district.leader_email)
+    district.leader_phone = data.get("leader_phone", district.leader_phone)
 
     # 🎯 Only Super Admin should be able to change hierarchy relationships
     if current_user.has_role("Super Admin"):
@@ -1285,6 +1320,8 @@ def create_group():
         name=name,
         code=code,
         leader=data.get("leader"),
+        leader_email=data.get("leader_email"),
+        leader_phone=data.get("leader_phone"),
         state_id=data["state_id"],
         region_id=data["region_id"],
         old_group_id=data.get("old_group_id")
@@ -1382,6 +1419,8 @@ def get_groups():
         "name": g.name,
         "code": g.code,
         "leader": g.leader,
+        "leader_email": g.leader_email,
+        "leader_phone": g.leader_phone,
         # "district": g.district.name if g.district else None,
         "region": g.region.name if g.region else None,
         "state": g.state.name if g.state else None,
@@ -1516,6 +1555,8 @@ def create_oldgroup():
         name=name,
         code=code,
         leader=data.get("leader"),
+        leader_email=data.get("leader_email"),
+        leader_phone=data.get("leader_phone"),
         state_id=data["state_id"],
         region_id=data["region_id"]
     )
@@ -1530,6 +1571,8 @@ def create_oldgroup():
             "name": old_group.name,
             "code": old_group.code,
             "leader": old_group.leader,
+            "leader_email": old_group.leader_email,
+            "leader_phone": old_group.leader_phone,
             "state_id": old_group.state_id,
             "region_id": old_group.region_id
         }
@@ -1655,6 +1698,12 @@ def update_oldgroup(id):
 
     if 'leader' in data:
         old_group.leader = data['leader']
+
+    if 'leader_email' in data:
+        old_group.leader_email = data['leader_email']
+
+    if 'leader_phone' in data:
+        old_group.leader_phone = data['leader_phone']
     
     # 🎯 Only Super Admin should be able to change hierarchy
     if current_user.has_role("Super Admin"):
@@ -1677,6 +1726,8 @@ def update_oldgroup(id):
             "name": old_group.name,
             "code": old_group.code,
             "leader": old_group.leader,
+            "leader_email": old_group.leader_email,
+            "leader_phone": old_group.leader_phone,
             "state_id": old_group.state_id,
             "region_id": old_group.region_id
         }
@@ -1829,10 +1880,14 @@ def get_oldgroup(id):
         "name": old_group.name,
         "code": old_group.code,
         "leader": old_group.leader,
+        "leader_email": old_group.leader_email,
+        "leader_phone": old_group.leader_phone,
         "state": old_group.state.name if old_group.state else None,
         "region": old_group.region.name if old_group.region else None
         # REMOVED: group, district references
     }), 200
+
+
 @hierarchy_bp.route('/oldgroups', methods=['GET'])
 @jwt_required()
 @swag_from({
@@ -1869,6 +1924,8 @@ def get_oldgroups():
         "name": o.name,
         "code": o.code,
         "leader": o.leader,
+        "leader_email": o.leader_email,
+        "leader_phone": o.leader_phone,
         "state": o.state.name if o.state else None,
         "region": o.region.name if o.region else None
         # REMOVED: group, district references
@@ -2103,6 +2160,8 @@ def update_group(id):
     group.name = data.get("name", group.name)
     group.code = data.get("code", group.code)
     group.leader = data.get("leader", group.leader)
+    group.leader_email = data.get("leader_email", group.leader_email)
+    group.leader_phone = data.get("leader_phone", group.leader_phone)
     db.session.commit()
     return jsonify(group.to_dict()), 200
 
