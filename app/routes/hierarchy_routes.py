@@ -1617,6 +1617,8 @@ def create_oldgroup():
 
 
 @hierarchy_bp.route('/oldgroups/<int:id>', methods=['PUT'])
+@jwt_required()
+@require_role(["super-admin", "state-admin", "region-admin"])
 @swag_from({
     "tags": ["Old Groups"],
     "summary": "Update an Old Group",
