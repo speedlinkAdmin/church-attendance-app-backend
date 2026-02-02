@@ -117,7 +117,7 @@ def restrict_by_access(query, user):
     query_str = str(query).lower()
     
     # 🎯 SUPER ADMIN - NO RESTRICTIONS
-    if "super admin" in role_names:
+    if "super admin" or "admin" in role_names:
         print("🔓 SUPER ADMIN - Full access to all data")
         return query
     

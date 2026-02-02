@@ -9,6 +9,8 @@ from app.utils.excel_importer_new import import_hierarchy_from_excel
 from app.utils.access_control import require_role
 import os
 import tempfile
+import datetime
+from datetime import datetime
 
 admin_bp = Blueprint("admin_bp", __name__)
 
@@ -21,10 +23,11 @@ def import_hierarchy():
 
     file = request.files["file"]
     state_name = request.form.get("state_name", "Rivers Central")  # 🎯 Default to Rivers Central
+    import_districts = request.form.get('import_districts', 'false').lower() == 'true'
     
     # Validate file type
-    if not file.filename.endswith(('.xlsx', '.xls')):
-        return jsonify({"error": "Only Excel files (.xlsx, .xls) are allowed"}), 400
+    if not file.filename.endswith(('.xlsx', '.xls', '.csv')):
+        return jsonify({"error": "Only Excel files (.xlsx, .xls, .csv) are allowed"}), 400
 
     # Create temporary file
     with tempfile.NamedTemporaryFile(delete=False, suffix='.xlsx') as tmp_file:
@@ -35,7 +38,7 @@ def import_hierarchy():
         print(f"=== Starting hierarchy import for state: {state_name} ===")
         
         # 🎯 Use enhanced importer with fixed state and region
-        result = import_hierarchy_from_excel(file_path, state_name)
+        result = import_hierarchy_from_excel(file_path, state_name, import_districts=import_districts)
         
         print(f"=== Hierarchy import completed ===")
         

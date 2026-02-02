@@ -426,61 +426,65 @@ def update_user(user_id):
     return jsonify({"message": "User updated successfully", "user": user.to_dict()}), 200
 
 
-    # data = request.get_json()
-    # user = User.query.get_or_404(user_id)
-
-    # # Update basic fields
-    # user.name = data.get("name", user.name)
-    # user.email = data.get("email", user.email)
-    # user.phone = data.get("phone", user.phone)
-    # user.is_active = data.get("is_active", user.is_active)
-
-    # # Update hierarchy
-    # user.state_id = data.get("state_id", user.state_id)
-    # user.region_id = data.get("region_id", user.region_id)
-    # user.district_id = data.get("district_id", user.district_id)
-
-    # # Enhanced role assignment - accepts both IDs and names
-    # if "roles" in data:
-    #     role_input = data["roles"]
-        
-    #     if not role_input:  # Empty array
-    #         user.roles = []
-    #     elif isinstance(role_input[0], int):  # Array of IDs [1, 2, 3]
-    #         roles = Role.query.filter(Role.id.in_(role_input)).all()
-    #         user.roles = roles
-    #     elif isinstance(role_input[0], str):  # Array of names ["State Admin", "Region Admin"]
-    #         roles = Role.query.filter(Role.name.in_(role_input)).all()
-    #         user.roles = roles
-    #     else:
-    #         return jsonify({"error": "Roles must be an array of IDs (integers) or names (strings)"}), 400
-
-    # db.session.commit()
-    # return jsonify({"message": "User updated successfully", "user": user.to_dict()}), 200
-
-
-    # data = request.get_json()
-    # user = User.query.get_or_404(user_id)
-
-    # user.name = data.get("name", user.name)
-    # user.email = data.get("email", user.email)
-    # user.phone = data.get("phone", user.phone)
-    # user.is_active = data.get("is_active", user.is_active)
-
-    # # Update hierarchy
-    # user.state_id = data.get("state_id", user.state_id)
-    # user.region_id = data.get("region_id", user.region_id)
-    # user.district_id = data.get("district_id", user.district_id)
-
-    # # Reassign roles if provided
-    # if "roles" in data:
-    #     role_ids = data["roles"]
-    #     roles = Role.query.filter(Role.id.in_(role_ids)).all()
-    #     user.roles = roles
-
-    # db.session.commit()
-    # return jsonify({"message": "User updated successfully", "user": user.to_dict()}), 200
-
+# def list_users():
+#     """
+#     List All Users
+#     ---
+#     tags:
+#       - Users
+#     description: Returns a list of all users in the system.
+#     security:
+#       - Bearer: []
+#     responses:
+#       200:
+#         description: A list of users
+#         schema:
+#           type: array
+#           items:
+#             type: object
+#     """
+#     # Pagination parameters
+#     page = request.args.get('page', 1, type=int)
+#     per_page = min(request.args.get('per_page', 50, type=int), 100)  # Max 100 per page
+    
+#     # Optimized query with eager loading
+#     users_query = User.query.options(db.joinedload(User.roles))
+    
+#     paginated_users = users_query.paginate(
+#         page=page, 
+#         per_page=per_page, 
+#         error_out=False
+#     )
+    
+#     # Optimized serialization
+#     users_data = []
+#     for user in paginated_users.items:
+#         users_data.append({
+#             'id': user.id,
+#             'email': user.email,
+#             'name': user.name,
+#             'phone': user.phone,
+#             'is_active': user.is_active,
+#             'state_id': user.state_id,
+#             'region_id': user.region_id,
+#             'district_id': user.district_id,
+#             'group_id': user.group_id,
+#             'old_group_id': user.old_group_id,
+#             'roles': [role.name for role in user.roles],
+#             'access_level': user.access_level()
+#         })
+    
+#     return jsonify({
+#         'users': users_data,
+#         'pagination': {
+#             'page': page,
+#             'per_page': per_page,
+#             'total': paginated_users.total,
+#             'pages': paginated_users.pages,
+#             'has_next': paginated_users.has_next,
+#             'has_prev': paginated_users.has_prev
+#         }
+#     }), 200
 
 def list_users():
     """
@@ -499,22 +503,15 @@ def list_users():
           items:
             type: object
     """
-    # Pagination parameters
-    page = request.args.get('page', 1, type=int)
-    per_page = min(request.args.get('per_page', 50, type=int), 100)  # Max 100 per page
-    
-    # Optimized query with eager loading
-    users_query = User.query.options(db.joinedload(User.roles))
-    
-    paginated_users = users_query.paginate(
-        page=page, 
-        per_page=per_page, 
-        error_out=False
-    )
-    
-    # Optimized serialization
+
+    # Fetch all users with eager-loaded roles
+    users = User.query.options(
+        db.joinedload(User.roles)
+    ).all()
+
+    # Serialize users
     users_data = []
-    for user in paginated_users.items:
+    for user in users:
         users_data.append({
             'id': user.id,
             'email': user.email,
@@ -529,18 +526,12 @@ def list_users():
             'roles': [role.name for role in user.roles],
             'access_level': user.access_level()
         })
-    
+
     return jsonify({
-        'users': users_data,
-        'pagination': {
-            'page': page,
-            'per_page': per_page,
-            'total': paginated_users.total,
-            'pages': paginated_users.pages,
-            'has_next': paginated_users.has_next,
-            'has_prev': paginated_users.has_prev
-        }
+        'users': users_data
     }), 200
+
+
 
     # users = User.query.all()
     # return jsonify([u.to_dict() for u in users]), 200
