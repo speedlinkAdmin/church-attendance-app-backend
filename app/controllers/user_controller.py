@@ -43,62 +43,132 @@ def can_create_role(current_user, target_roles):
 
     return False
 
+# @jwt_required()
+# def create_user():
+#     """
+#     Create User (for State Admins and below)
+#     ---
+#     tags:
+#       - Users
+#     description: Create a new user account with hierarchical role restrictions.
+#     security:
+#       - Bearer: []
+#     consumes:
+#       - application/json
+#     parameters:
+#       - in: body
+#         name: body
+#         required: true
+#         schema:
+#           id: CreateUser
+#           required:
+#             - email
+#             - password
+#             - role_id
+#           properties:
+#             name:
+#               type: string
+#               example: John Doe
+#             email:
+#               type: string
+#               example: johndoe@example.com
+#             phone:
+#               type: string
+#               example: "+2348012345678"
+#             password:
+#               type: string
+#               example: mysecurepass
+#             role_id:
+#               type: integer
+#               example: 2
+#               description: "Role ID (2=State Admin, 3=Region Admin, 4=District Admin, 5=Group Admin, 6=Viewer)"
+#             state_id:
+#               type: integer
+#             region_id:
+#               type: integer
+#             district_id:
+#               type: integer
+#     responses:
+#       201:
+#         description: User created successfully
+#       400:
+#         description: Invalid or missing input
+#       403:
+#         description: Insufficient permissions
+#     """
+#     data = request.get_json()
+#     current_user_id = get_jwt_identity()
+#     current_user = User.query.get(current_user_id)
+
+#     # Required fields
+#     email = data.get("email")
+#     password = data.get("password")
+#     role_id = data.get("role_id")
+    
+#     if not all([email, password, role_id]):
+#         return jsonify({"error": "Email, password, and role_id are required"}), 400
+
+#     # Check duplicates
+#     if User.query.filter_by(email=email).first():
+#         return jsonify({"error": "User with this email already exists"}), 400
+
+#     # Get the target role
+#     target_role = Role.query.get(role_id)
+#     if not target_role:
+#         return jsonify({"error": "Invalid role ID"}), 400
+
+#     # Check permissions - can current user create this role?
+#     if not can_create_role(current_user, [target_role]):
+#         return jsonify({"error": "Insufficient permissions to create users with this role"}), 403
+
+#     # Validate hierarchy based on the role being assigned
+#     validation_error = validate_user_hierarchy(data, [target_role])
+#     if validation_error:
+#         return jsonify({"error": validation_error}), 400
+
+#     # Auto-assign hierarchy based on current user's level
+#     state_id, region_id, district_id, group_id, old_group_id = auto_assign_hierarchy(current_user, data, target_role)
+
+#     # Create user
+#     user = User(
+#         name=data.get("name"),
+#         email=email,
+#         phone=data.get("phone"),
+#         is_active=True,
+#         state_id=state_id,
+#         region_id=region_id,
+#         district_id=district_id,
+#         group_id=group_id,
+#         old_group_id=old_group_id
+#     )
+#     user.set_password(password)
+#     user.roles = [target_role]
+
+#     db.session.add(user)
+#     db.session.commit()
+
+#     return jsonify({
+#         "message": f"User created successfully as {target_role.name}",
+#         "user": user.to_dict()
+#     }), 201
+
 @jwt_required()
 def create_user():
     """
     Create User (for State Admins and below)
     ---
-    tags:
-      - Users
-    description: Create a new user account with hierarchical role restrictions.
-    security:
-      - Bearer: []
-    consumes:
-      - application/json
-    parameters:
-      - in: body
-        name: body
-        required: true
-        schema:
-          id: CreateUser
-          required:
-            - email
-            - password
-            - role_id
-          properties:
-            name:
-              type: string
-              example: John Doe
-            email:
-              type: string
-              example: johndoe@example.com
-            phone:
-              type: string
-              example: "+2348012345678"
-            password:
-              type: string
-              example: mysecurepass
-            role_id:
-              type: integer
-              example: 2
-              description: "Role ID (2=State Admin, 3=Region Admin, 4=District Admin, 5=Group Admin, 6=Viewer)"
-            state_id:
-              type: integer
-            region_id:
-              type: integer
-            district_id:
-              type: integer
-    responses:
-      201:
-        description: User created successfully
-      400:
-        description: Invalid or missing input
-      403:
-        description: Insufficient permissions
+    # ... (your Swagger docs remain the same)
     """
     data = request.get_json()
+    print("🔍 [CREATE_USER] Incoming data:", data)  # Log incoming request body
+
     current_user_id = get_jwt_identity()
     current_user = User.query.get(current_user_id)
+    if not current_user:
+        print("❌ [CREATE_USER] Current user not found for ID:", current_user_id)
+        return jsonify({"error": "Unauthorized - User not found"}), 401
+
+    print("👤 [CREATE_USER] Current user:", current_user.email, "Roles:", [r.name for r in current_user.roles])
 
     # Required fields
     email = data.get("email")
@@ -106,28 +176,46 @@ def create_user():
     role_id = data.get("role_id")
     
     if not all([email, password, role_id]):
+        print("❌ [CREATE_USER] Missing required fields")
         return jsonify({"error": "Email, password, and role_id are required"}), 400
 
     # Check duplicates
     if User.query.filter_by(email=email).first():
+        print("❌ [CREATE_USER] Duplicate email:", email)
         return jsonify({"error": "User with this email already exists"}), 400
 
     # Get the target role
     target_role = Role.query.get(role_id)
     if not target_role:
+        print("❌ [CREATE_USER] Invalid role ID:", role_id)
         return jsonify({"error": "Invalid role ID"}), 400
+
+    print("🎯 [CREATE_USER] Target role:", target_role.name)
 
     # Check permissions - can current user create this role?
     if not can_create_role(current_user, [target_role]):
+        print("❌ [CREATE_USER] Insufficient permissions for role:", target_role.name)
         return jsonify({"error": "Insufficient permissions to create users with this role"}), 403
+
+    print("✅ [CREATE_USER] Permission check passed")
 
     # Validate hierarchy based on the role being assigned
     validation_error = validate_user_hierarchy(data, [target_role])
     if validation_error:
+        print("❌ [CREATE_USER] Hierarchy validation failed:", validation_error)
         return jsonify({"error": validation_error}), 400
+
+    print("✅ [CREATE_USER] Hierarchy validation passed")
 
     # Auto-assign hierarchy based on current user's level
     state_id, region_id, district_id, group_id, old_group_id = auto_assign_hierarchy(current_user, data, target_role)
+    print("🔄 [CREATE_USER] Auto-assigned hierarchy:", {
+        "state_id": state_id,
+        "region_id": region_id,
+        "district_id": district_id,
+        "group_id": group_id,
+        "old_group_id": old_group_id
+    })
 
     # Create user
     user = User(
@@ -147,10 +235,13 @@ def create_user():
     db.session.add(user)
     db.session.commit()
 
+    print("✅ [CREATE_USER] User created successfully:", user.email)
+
     return jsonify({
         "message": f"User created successfully as {target_role.name}",
         "user": user.to_dict()
     }), 201
+
 
 def validate_hierarchy_relationships(data):
     """Validate that hierarchy IDs have proper relationships"""
@@ -528,6 +619,7 @@ def list_users():
         })
 
     return jsonify({
+        'total': len(users),
         'users': users_data
     }), 200
 

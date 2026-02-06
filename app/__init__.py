@@ -54,7 +54,7 @@ def create_app(config_object=None):
     app.json_encoder = CustomJSONProvider(app)
 
     setup_roles_on_startup(app)
-    start_scheduler()
+    start_scheduler(app)
 
 
      # Initialize Swagger

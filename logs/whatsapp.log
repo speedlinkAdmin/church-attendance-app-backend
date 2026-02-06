@@ -1,0 +1,87 @@
+WhatsApp message sent successfully to=2347064952367 message_id=wamid.HBgNMjM0NzA2NDk1MjM2NxUCABEYEkQyMDgwNDQwOEY0RDRDQzU3OQA=
+WhatsApp message sent successfully to=2347064952367 message_id=wamid.HBgNMjM0NzA2NDk1MjM2NxUCABEYEjVCMzVDRjREODdCRUVGOTBCNgA=
+WhatsApp request failed to 2347064952367
+Traceback (most recent call last):
+  File "C:\Users\edward.ndiyo\Documents\python_scripts\Church_Attendance_App\venv\Lib\site-packages\urllib3\connection.py", line 198, in _new_conn
+    sock = connection.create_connection(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\edward.ndiyo\Documents\python_scripts\Church_Attendance_App\venv\Lib\site-packages\urllib3\util\connection.py", line 60, in create_connection
+    for res in socket.getaddrinfo(host, port, family, socket.SOCK_STREAM):
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\edward.ndiyo\AppData\Local\Programs\Python\Python311\Lib\socket.py", line 962, in getaddrinfo
+    for res in _socket.getaddrinfo(host, port, family, type, proto, flags):
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+socket.gaierror: [Errno 11001] getaddrinfo failed
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "C:\Users\edward.ndiyo\Documents\python_scripts\Church_Attendance_App\venv\Lib\site-packages\urllib3\connectionpool.py", line 787, in urlopen
+    response = self._make_request(
+               ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\edward.ndiyo\Documents\python_scripts\Church_Attendance_App\venv\Lib\site-packages\urllib3\connectionpool.py", line 488, in _make_request
+    raise new_e
+  File "C:\Users\edward.ndiyo\Documents\python_scripts\Church_Attendance_App\venv\Lib\site-packages\urllib3\connectionpool.py", line 464, in _make_request
+    self._validate_conn(conn)
+  File "C:\Users\edward.ndiyo\Documents\python_scripts\Church_Attendance_App\venv\Lib\site-packages\urllib3\connectionpool.py", line 1093, in _validate_conn
+    conn.connect()
+  File "C:\Users\edward.ndiyo\Documents\python_scripts\Church_Attendance_App\venv\Lib\site-packages\urllib3\connection.py", line 753, in connect
+    self.sock = sock = self._new_conn()
+                       ^^^^^^^^^^^^^^^^
+  File "C:\Users\edward.ndiyo\Documents\python_scripts\Church_Attendance_App\venv\Lib\site-packages\urllib3\connection.py", line 205, in _new_conn
+    raise NameResolutionError(self.host, self, e) from e
+urllib3.exceptions.NameResolutionError: <urllib3.connection.HTTPSConnection object at 0x00000166F7A18190>: Failed to resolve 'graph.facebook.com' ([Errno 11001] getaddrinfo failed)
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "C:\Users\edward.ndiyo\Documents\python_scripts\Church_Attendance_App\venv\Lib\site-packages\requests\adapters.py", line 644, in send
+    resp = conn.urlopen(
+           ^^^^^^^^^^^^^
+  File "C:\Users\edward.ndiyo\Documents\python_scripts\Church_Attendance_App\venv\Lib\site-packages\urllib3\connectionpool.py", line 841, in urlopen
+    retries = retries.increment(
+              ^^^^^^^^^^^^^^^^^^
+  File "C:\Users\edward.ndiyo\Documents\python_scripts\Church_Attendance_App\venv\Lib\site-packages\urllib3\util\retry.py", line 519, in increment
+    raise MaxRetryError(_pool, url, reason) from reason  # type: ignore[arg-type]
+    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+urllib3.exceptions.MaxRetryError: HTTPSConnectionPool(host='graph.facebook.com', port=443): Max retries exceeded with url: /v17.0/808921198974802/messages (Caused by NameResolutionError("<urllib3.connection.HTTPSConnection object at 0x00000166F7A18190>: Failed to resolve 'graph.facebook.com' ([Errno 11001] getaddrinfo failed)"))
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\edward.ndiyo\Documents\python_scripts\Church_Attendance_App\app\utils\whatsapp_service.py", line 52, in send_message
+    response = requests.post(
+               ^^^^^^^^^^^^^^
+  File "C:\Users\edward.ndiyo\Documents\python_scripts\Church_Attendance_App\venv\Lib\site-packages\requests\api.py", line 115, in post
+    return request("post", url, data=data, json=json, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\edward.ndiyo\Documents\python_scripts\Church_Attendance_App\venv\Lib\site-packages\requests\api.py", line 59, in request
+    return session.request(method=method, url=url, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\edward.ndiyo\Documents\python_scripts\Church_Attendance_App\venv\Lib\site-packages\requests\sessions.py", line 589, in request
+    resp = self.send(prep, **send_kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\edward.ndiyo\Documents\python_scripts\Church_Attendance_App\venv\Lib\site-packages\requests\sessions.py", line 703, in send
+    r = adapter.send(request, **kwargs)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\edward.ndiyo\Documents\python_scripts\Church_Attendance_App\venv\Lib\site-packages\requests\adapters.py", line 677, in send
+    raise ConnectionError(e, request=request)
+requests.exceptions.ConnectionError: HTTPSConnectionPool(host='graph.facebook.com', port=443): Max retries exceeded with url: /v17.0/808921198974802/messages (Caused by NameResolutionError("<urllib3.connection.HTTPSConnection object at 0x00000166F7A18190>: Failed to resolve 'graph.facebook.com' ([Errno 11001] getaddrinfo failed)"))
+WhatsApp message sent successfully to=2347064952367 message_id=wamid.HBgNMjM0NzA2NDk1MjM2NxUCABEYEkY1ODc0MkQzRTYzRjA0NDkyRgA=
+WhatsApp message sent successfully to=2347064952367 message_id=wamid.HBgNMjM0NzA2NDk1MjM2NxUCABEYEjQyQjREMUYwQ0EyRUY2QkZFNgA=
+WhatsApp message sent successfully to=2347064952367 message_id=wamid.HBgNMjM0NzA2NDk1MjM2NxUCABEYEkVBQUJGQjNCM0M2NjNEQURFRQA=
+WhatsApp message sent successfully to=2347064952367 message_id=wamid.HBgNMjM0NzA2NDk1MjM2NxUCABEYEkJBMDdEQzY4MjAzMjkxQUMzRgA=
+WhatsApp message sent successfully to=2347064952367 message_id=wamid.HBgNMjM0NzA2NDk1MjM2NxUCABEYEkM5NjgzMDI1N0MwQzRBOUQwMAA=
+WhatsApp message sent successfully to=2347064952367 message_id=wamid.HBgNMjM0NzA2NDk1MjM2NxUCABEYEjNDODA2MTY2RDk2M0M5M0U1RQA=
+WhatsApp message sent successfully to=2347064952367 message_id=wamid.HBgNMjM0NzA2NDk1MjM2NxUCABEYEjdEQjU4N0E5MjA5RjY1NTUwMgA=
+WhatsApp message sent successfully to=2347064952367 message_id=wamid.HBgNMjM0NzA2NDk1MjM2NxUCABEYEjdCQzgxMTBGMTNDQjA4MTA0RQA=
+WhatsApp message sent successfully to=2347064952367 message_id=wamid.HBgNMjM0NzA2NDk1MjM2NxUCABEYEjFBQjJBNjY5MDBDOTAzQ0Q0OQA=
+WhatsApp message sent successfully to=2347064952367 message_id=wamid.HBgNMjM0NzA2NDk1MjM2NxUCABEYEjkyNkRBOTg0MkQxMTlGRkUwOQA=
+WhatsApp message sent successfully to=2347064952367 message_id=wamid.HBgNMjM0NzA2NDk1MjM2NxUCABEYEjI3NEE4RTA4RjE0NEYxMzkwNgA=
+WhatsApp message sent successfully to=2347064952367 message_id=wamid.HBgNMjM0NzA2NDk1MjM2NxUCABEYEkE0QzlFOTc2NUUzNDI5NzQ5QQA=
+WhatsApp message sent successfully to=2347064952367 message_id=wamid.HBgNMjM0NzA2NDk1MjM2NxUCABEYEjE5MURBQzc3RkQ3MTkwQUU0QQA=
+WhatsApp message sent successfully to=2347064952367 message_id=wamid.HBgNMjM0NzA2NDk1MjM2NxUCABEYEjY3NDkzQTFBQTQwMkFGNDQ3RgA=
+WhatsApp message sent successfully to=2347064952367 message_id=wamid.HBgNMjM0NzA2NDk1MjM2NxUCABEYEjE5NEY0REJGMEEzMEUzMjRFNgA=
+WhatsApp message sent successfully to=2347064952367 message_id=wamid.HBgNMjM0NzA2NDk1MjM2NxUCABEYEjYwNEM4NDZCQjAyQkRBMjNENgA=
+WhatsApp message sent successfully to=2347064952367 message_id=wamid.HBgNMjM0NzA2NDk1MjM2NxUCABEYEjJBOUVFQjM4MUYwRDI5OUM4QgA=
+WhatsApp message sent successfully to=2347064952367 message_id=wamid.HBgNMjM0NzA2NDk1MjM2NxUCABEYEjIyNDY5QTUyMzIzNDNFRjZFMAA=

@@ -32,6 +32,8 @@ class Config:
     EMAIL_PASSWORD = os.environ.get("EMAIL_PASSWORD")
     SUPPORT_EMAIL = os.environ.get("SUPPORT_EMAIL")
 
+    WHATSAPP_PHONE_NUMBER_ID = os.getenv('WHATSAPP_PHONE_NUMBER_ID', '808921198974802')
+    WHATSAPP_TOKEN = os.getenv('WHATSAPP_TOKEN')
 
 
 

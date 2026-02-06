@@ -100,14 +100,3 @@ def get_attendance_monitor_summary():
     } for old_group in old_groups]
 
     return summary
-
-
-
-
-
-
-
-
-
-
-
