@@ -11,95 +11,6 @@ from app.models.user import User
 from app.models.youth_attendance import YouthAttendance
 from app.utils.access_control import require_role ##,restrict_by_access
 
-# def restrict_by_access(query, user):
-#     """
-#     COMPLETE ACCESS CONTROL - Handles all user roles in the hierarchy
-#     Hierarchy: Super Admin → State Admin → Region Admin → District Admin → Group Admin → Old Group Admin
-#     """
-#     print(f"🎯 ACCESS CONTROL for user {user.id} with roles: {[r.name for r in.user.roles]}")
-    
-#     if not user or not user.roles:
-#         print("❌ No user or roles - no access")
-#         return query.filter_by(id=None)
-    
-#     # Get normalized role names
-#     role_names = [r.name.lower() for r in user.roles]
-#     print(f"🎯 Normalized roles: {role_names}")
-    
-#     # Detect model type from query
-#     query_str = str(query)
-    
-#     # 🎯 SUPER ADMIN - NO RESTRICTIONS
-#     if "super admin" in role_names:
-#         print("🔓 SUPER ADMIN - Full access granted")
-#         return query
-    
-#     # 🎯 STATE ADMIN - Access to everything in their state
-#     elif "state admin" in role_names and user.state_id:
-#         print(f"🔐 STATE ADMIN - Filtering by state_id: {user.state_id}")
-#         if "FROM groups" in query_str:
-#             return query.filter(Group.state_id == user.state_id)
-#         elif "FROM districts" in query_str:
-#             return query.filter(District.state_id == user.state_id)
-#         elif "FROM regions" in query_str:
-#             return query.filter(Region.state_id == user.state_id)
-#         elif "FROM old_groups" in query_str:
-#             return query.filter(OldGroup.state_id == user.state_id)
-#         elif "FROM states" in query_str:
-#             return query.filter(State.id == user.state_id)
-#         else:
-#             return query.filter_by(id=None)
-    
-#     # 🎯 REGION ADMIN - Access to everything in their region
-#     elif "region admin" in role_names and user.region_id:
-#         print(f"🔐 REGION ADMIN - Filtering by region_id: {user.region_id}")
-#         if "FROM groups" in query_str:
-#             return query.filter(Group.region_id == user.region_id)
-#         elif "FROM districts" in query_str:
-#             return query.filter(District.region_id == user.region_id)
-#         elif "FROM old_groups" in query_str:
-#             return query.filter(OldGroup.region_id == user.region_id)
-#         elif "FROM regions" in query_str:
-#             return query.filter(Region.id == user.region_id)
-#         else:
-#             return query.filter_by(id=None)
-    
-#     # 🎯 DISTRICT ADMIN - Access to everything in their district
-#     elif "district admin" in role_names and user.district_id:
-#         print(f"🔐 DISTRICT ADMIN - Filtering by district_id: {user.district_id}")
-#         if "FROM groups" in query_str:
-#             return query.filter(Group.district_id == user.district_id)
-#         elif "FROM districts" in query_str:
-#             return query.filter(District.id == user.district_id)
-#         else:
-#             return query.filter_by(id=None)
-    
-#     # 🎯 GROUP ADMIN - Access to everything in their group (CURRENTLY WORKING)
-#     elif "group admin" in role_names and user.group_id:
-#         print(f"🔐 GROUP ADMIN - Filtering by group_id: {user.group_id}")
-#         if "FROM groups" in query_str:
-#             return query.filter(Group.id == user.group_id)
-#         elif "FROM districts" in query_str:
-#             return query.filter(District.group_id == user.group_id)
-#         else:
-#             return query.filter_by(id=None)
-    
-#     # 🎯 OLD GROUP ADMIN - Access to everything in their old group
-#     elif "old group admin" in role_names and user.old_group_id:
-#         print(f"🔐 OLD GROUP ADMIN - Filtering by old_group_id: {user.old_group_id}")
-#         if "FROM groups" in query_str:
-#             return query.filter(Group.old_group_id == user.old_group_id)
-#         elif "FROM districts" in query_str:
-#             return query.filter(District.old_group_id == user.old_group_id)
-#         elif "FROM old_groups" in query_str:
-#             return query.filter(OldGroup.id == user.old_group_id)
-#         else:
-#             return query.filter_by(id=None)
-    
-#     # 🚫 NO VALID ROLE OR MISSING HIERARCHY DATA
-#     print(f"🚫 No valid access - User has roles: {role_names} but missing hierarchy data")
-#     return query.filter_by(id=None)
-
 def restrict_by_access(query, user):
     """
     ENHANCED ACCESS CONTROL - Better model detection and role handling
@@ -595,7 +506,8 @@ def get_regions():
         "leader": r.leader,
         "leader_email": r.leader_email,
         "leader_phone": r.leader_phone,
-        "state": r.state.name
+        "state": r.state.name,
+        "state_id": r.state_id
     } for r in regions])
 
 
@@ -652,15 +564,6 @@ def update_region(id):
     region.leader_phone = data.get("leader_phone", region.leader_phone)
     db.session.commit()
     return jsonify(region.to_dict()), 200
-
-
-    # data = request.get_json() or {}
-    # region = Region.query.get_or_404(id)
-    # region.name = data.get("name", region.name)
-    # region.code = data.get("code", region.code)
-    # region.leader = data.get("leader", region.leader)
-    # db.session.commit()
-    # return jsonify(region.to_dict()), 200
 
 
 @hierarchy_bp.route("/region/<int:id>", methods=["DELETE"])
@@ -784,39 +687,6 @@ def create_district():
     return jsonify({"message": "District created"}), 201
 
 
-    # data = request.get_json()
-    # current_user = User.query.get(get_jwt_identity())
-
-    # # State Admin restriction
-    # if current_user.has_role("state admin") and current_user.state_id != data.get("state_id"):
-    #     return jsonify({"error": "You cannot create a district outside your state"}), 403
-
-    # # Region Admin restriction  
-    # if current_user.has_role("region admin") and current_user.region_id not in (None, data.get("region_id")):
-    #     return jsonify({"error": "You cannot create a district outside your region"}), 403
-
-    # # Validate required fields
-    # required_fields = ["name", "code", "state_id", "region_id"]
-    # for field in required_fields:
-    #     if not data.get(field):
-    #         return jsonify({"error": f"Missing required field '{field}'"}), 400
-
-    # district = District(
-    #     name=data['name'],
-    #     code=data['code'],
-    #     leader=data.get('leader'),
-    #     state_id=data['state_id'],
-    #     region_id=data['region_id'],
-    #     old_group_id=data.get('old_group_id'),
-    #     group_id=data.get('group_id')
-    # )
-    
-    # db.session.add(district)
-    # db.session.commit()
-    
-    # return jsonify({"message": "District created"}), 201
-
-
 @hierarchy_bp.route('/districts', methods=['GET'])
 @jwt_required()
 def get_districts():
@@ -855,15 +725,6 @@ def get_districts():
         "group_id": d.group_id
     } for d in districts])
 
-    # return jsonify([{
-    #     "id": d.id,
-    #     "name": d.name,
-    #     "code": d.code,
-    #     "leader": d.leader,
-    #     "region": d.region.name,
-    #     "state": d.region.state.name,
-    #     "old_group": d.region
-    # } for d in districts])
 
 
 @hierarchy_bp.route('/debug-group-admin', methods=['GET'])
@@ -1424,7 +1285,11 @@ def get_groups():
         # "district": g.district.name if g.district else None,
         "region": g.region.name if g.region else None,
         "state": g.state.name if g.state else None,
-        "old_group": g.old_group.name if g.old_group else None
+        "old_group": g.old_group.name if g.old_group else None,
+        "region_id": g.region_id,
+        "state_id": g.state_id,
+        "old_group_id": g.old_group_id,
+        # "group_id": g.group_id
     } for g in groups])
 
 
@@ -1885,7 +1750,10 @@ def get_oldgroup(id):
         "leader_email": old_group.leader_email,
         "leader_phone": old_group.leader_phone,
         "state": old_group.state.name if old_group.state else None,
-        "region": old_group.region.name if old_group.region else None
+        "region": old_group.region.name if old_group.region else None,
+        "state_id": old_group.state_id,
+        "region_id": old_group.region_id,
+
         # REMOVED: group, district references
     }), 200
 
@@ -1929,7 +1797,12 @@ def get_oldgroups():
         "leader_email": o.leader_email,
         "leader_phone": o.leader_phone,
         "state": o.state.name if o.state else None,
-        "region": o.region.name if o.region else None
+        "region": o.region.name if o.region else None,
+
+        "region_id": o.region_id,
+        "state_id": o.state_id,
+        # "old_group_id": o.old_group_id,
+        # "group_id": o.group_id
         # REMOVED: group, district references
     } for o in oldgroups])
 

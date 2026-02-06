@@ -50,8 +50,9 @@ def attendance_monitor():
     print(f"🔍 Attendance Monitor - Current user: {current_user.id}, Roles: {[r.name for r in current_user.roles]}")
     print(f"🔍 User hierarchy - State: {current_user.state_id}, Region: {current_user.region_id}, District: {current_user.district_id}, Group: {current_user.group_id}, OldGroup: {current_user.old_group_id}")
 
-    def format_submission_summary(summary):
-        result = {
+
+    def build_submission_index(summary):
+        index = {
             "submitted": {
                 "states": [],
                 "regions": [],
@@ -66,23 +67,92 @@ def attendance_monitor():
             }
         }
 
+        STATUS_TO_BUCKET = {
+            "green": "submitted",
+            "yellow": "pending",
+            "red": "pending"
+        }
+
         for state in summary.get("states", []):
-            key = "submitted" if state["status"] == "submitted" else "pending"
-            result[key]["states"].append(state["name"])
+            bucket = STATUS_TO_BUCKET.get(state["status"])
+            if not bucket:
+                continue  # safety guard
+
+            index[bucket]["states"].append({
+                "id": state["id"],
+                "name": state["name"],
+                "last_filled_week": state["last_filled_week"]
+            })
 
         for region in summary.get("regions", []):
-            key = "submitted" if region["status"] == "submitted" else "pending"
-            result[key]["regions"].append(region["name"])
+            bucket = STATUS_TO_BUCKET.get(region["status"])
+            if not bucket:
+                continue
+
+            index[bucket]["regions"].append({
+                "id": region["id"],
+                "name": region["name"],
+                "last_filled_week": region["last_filled_week"]
+            })
 
         for district in summary.get("districts", []):
-            key = "submitted" if district["status"] == "submitted" else "pending"
-            result[key]["districts"].append(district["name"])
+            bucket = STATUS_TO_BUCKET.get(district["status"])
+            if not bucket:
+                continue
+
+            index[bucket]["districts"].append({
+                "id": district["id"],
+                "name": district["name"],
+                "last_filled_week": district["last_filled_week"]
+            })
 
         for group in summary.get("groups", []):
-            key = "submitted" if group["status"] == "submitted" else "pending"
-            result[key]["groups"].append(group["name"])
+            bucket = STATUS_TO_BUCKET.get(group["status"])
+            if not bucket:
+                continue
 
-        return result
+            index[bucket]["groups"].append({
+                "id": group["id"],
+                "name": group["name"],
+                "last_filled_week": group["last_filled_week"]
+            })
+
+        return index
+
+
+    # def format_submission_summary(summary):
+    #     result = {
+    #         "submitted": {
+    #             "states": [],
+    #             "regions": [],
+    #             "districts": [],
+    #             "groups": []
+    #         },
+    #         "pending": {
+    #             "states": [],
+    #             "regions": [],
+    #             "districts": [],
+    #             "groups": []
+    #         }
+    #     }
+
+    #     for state in summary.get("states", []):
+    #         key = "submitted" if state["status"] == "submitted" else "pending"
+    #         result[key]["states"].append(state["name"])
+
+    #     for region in summary.get("regions", []):
+    #         key = "submitted" if region["status"] == "submitted" else "pending"
+    #         result[key]["regions"].append(region["name"])
+
+    #     for district in summary.get("districts", []):
+    #         key = "submitted" if district["status"] == "submitted" else "pending"
+    #         result[key]["districts"].append(district["name"])
+
+    #     for group in summary.get("groups", []):
+    #         key = "submitted" if group["status"] == "submitted" else "pending"
+    #         result[key]["groups"].append(group["name"])
+
+    #     return result
     
     # Get the full summary first
     full_summary = get_attendance_monitor_summary()
@@ -96,7 +166,12 @@ def attendance_monitor():
     #     return jsonify(full_summary), 200
 
     if is_super_admin:
-        return jsonify(format_submission_summary(full_summary)), 200
+        return jsonify({
+            "data": full_summary,
+            "summary": build_submission_index(full_summary)
+        }), 200
+
+        # return jsonify(format_submission_summary(full_summary)), 200
     
     # For non-Super Admins, filter based on hierarchy
     print("👤 Regular admin - filtering summary based on hierarchy")
@@ -246,42 +321,13 @@ def attendance_monitor():
     
     print(f"🔍 Returning filtered summary with counts - States: {len(filtered_summary['states'])}, Regions: {len(filtered_summary['regions'])}, Districts: {len(filtered_summary['districts'])}, Groups: {len(filtered_summary['groups'])}, Old Groups: {len(filtered_summary['old_groups'])}")
 
-    # def format_submission_summary(summary):
-    #     result = {
-    #         "submitted": {
-    #             "states": [],
-    #             "regions": [],
-    #             "districts": [],
-    #             "groups": []
-    #         },
-    #         "pending": {
-    #             "states": [],
-    #             "regions": [],
-    #             "districts": [],
-    #             "groups": []
-    #         }
-    #     }
 
-    #     for state in summary.get("states", []):
-    #         key = "submitted" if state["status"] == "submitted" else "pending"
-    #         result[key]["states"].append(state["name"])
+    # return jsonify(filtered_summary), 200
+    return jsonify({
+        "data": filtered_summary,
+        "summary": build_submission_index(filtered_summary)
+    }), 200
 
-    #     for region in summary.get("regions", []):
-    #         key = "submitted" if region["status"] == "submitted" else "pending"
-    #         result[key]["regions"].append(region["name"])
-
-    #     for district in summary.get("districts", []):
-    #         key = "submitted" if district["status"] == "submitted" else "pending"
-    #         result[key]["districts"].append(district["name"])
-
-    #     for group in summary.get("groups", []):
-    #         key = "submitted" if group["status"] == "submitted" else "pending"
-    #         result[key]["groups"].append(group["name"])
-
-    #     return result
-
-    
-    return jsonify(filtered_summary), 200
 
 
 
