@@ -118,41 +118,6 @@ def attendance_monitor():
             })
 
         return index
-
-
-    # def format_submission_summary(summary):
-    #     result = {
-    #         "submitted": {
-    #             "states": [],
-    #             "regions": [],
-    #             "districts": [],
-    #             "groups": []
-    #         },
-    #         "pending": {
-    #             "states": [],
-    #             "regions": [],
-    #             "districts": [],
-    #             "groups": []
-    #         }
-    #     }
-
-    #     for state in summary.get("states", []):
-    #         key = "submitted" if state["status"] == "submitted" else "pending"
-    #         result[key]["states"].append(state["name"])
-
-    #     for region in summary.get("regions", []):
-    #         key = "submitted" if region["status"] == "submitted" else "pending"
-    #         result[key]["regions"].append(region["name"])
-
-    #     for district in summary.get("districts", []):
-    #         key = "submitted" if district["status"] == "submitted" else "pending"
-    #         result[key]["districts"].append(district["name"])
-
-    #     for group in summary.get("groups", []):
-    #         key = "submitted" if group["status"] == "submitted" else "pending"
-    #         result[key]["groups"].append(group["name"])
-
-    #     return result
     
     # Get the full summary first
     full_summary = get_attendance_monitor_summary()
@@ -160,10 +125,7 @@ def attendance_monitor():
     # Check if user is Super Admin
     user_roles = [role.name for role in current_user.roles]
     is_super_admin = "Super Admin" in user_roles
-    
-    # if is_super_admin:
-    #     print("🎯 Super Admin detected - returning full summary")
-    #     return jsonify(full_summary), 200
+
 
     if is_super_admin:
         return jsonify({

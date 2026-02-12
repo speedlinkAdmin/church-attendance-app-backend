@@ -78,7 +78,15 @@ def get_attendance_monitor_summary():
         "id": district.id,
         "name": district.name,
         "last_filled_week": district_weeks.get(district.id, 0),
-        "status": get_attendance_status(district_weeks.get(district.id, 0))
+        "status": get_attendance_status(district_weeks.get(district.id, 0)),
+         # Add group information
+        "group_id": district.group_id,
+        "group": district.group.name if district.group else None,
+        # Also include region/state for hierarchical filtering
+        "region_id": district.region_id,
+        "region": district.region.name if district.region else None,
+        "state_id": district.state_id,
+        "state": district.state.name if district.state else None
     } for district in districts]
 
     # GROUPS - Single query

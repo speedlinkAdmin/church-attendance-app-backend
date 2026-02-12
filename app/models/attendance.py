@@ -47,6 +47,8 @@ class Attendance(db.Model):
             "state_id": self.state_id,
             "region_id": self.region_id,
             "district_id": self.district_id,
+            "district_name": self.district.name if self.district else None,
+
             "group_id": self.group_id,
             "old_group_id": self.old_group_id,
             "month": self.month,

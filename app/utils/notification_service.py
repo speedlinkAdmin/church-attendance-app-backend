@@ -36,7 +36,7 @@ class NotificationService:
                 self.email_service.send_email(
                     to_email=user.email,
                     subject="Attendance Reminder",
-                    template_name="attendance_reminder",
+                    template_name="attendance_overdue",
                     context=context
                 )
                 results['email_sent'] = True

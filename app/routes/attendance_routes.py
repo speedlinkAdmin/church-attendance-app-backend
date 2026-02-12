@@ -271,6 +271,9 @@ def get_attendance():
     month = request.args.get("month")
     group_id = request.args.get("group_id")
     old_group_id = request.args.get("old_group_id")
+    district_id = request.args.get("district_id")
+    state_id = request.args.get("state_id")
+    region_id = request.args.get("region_id")
 
     # Apply filters based on user role
     state_id = region_id = district_id = None
@@ -322,41 +325,6 @@ def get_attendance():
     return jsonify([a.to_dict() for a in records]), 200
 
 
-
-# def get_attendance():
-#     user_id = get_jwt_identity()
-#     user = User.query.get(user_id)
-
-#     service_type = request.args.get("service_type")
-#     year = request.args.get("year")
-#     month = request.args.get("month")
-#     group_id = request.args.get("group_id")
-#     old_group_id = request.args.get("old_group_id")
-
-#     # Apply filters based on user role
-#     state_id = region_id = district_id = None
-    
-#     user_role_names = [role.name for role in user.roles] if user.roles else []
-    
-#     if "State Admin" in user_role_names:
-#         state_id = user.state_id
-#     elif "Regional Admin" in user_role_names:
-#         region_id = user.region_id
-#     elif "District Admin" in user_role_names:
-#         district_id = user.district_id
-
-#     records = attendance_controller.get_all_attendance(
-#         service_type=service_type,
-#         state_id=state_id,
-#         region_id=region_id,
-#         district_id=district_id,
-#         group_id=group_id,
-#         old_group_id=old_group_id,
-#         year=year,
-#         month=month
-#     )
-
-#     return jsonify([a.to_dict() for a in records]), 200
 
 @attendance_bp.route("/attendance/<int:attendance_id>", methods=["GET"])
 @jwt_required()

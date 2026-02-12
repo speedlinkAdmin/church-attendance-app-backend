@@ -1,17 +1,57 @@
-from datetime import datetime
-from app.models import Attendance, State, Region, District, Group, OldGroup
-from app.models import User
-from typing import List, Optional
+from datetime import datetime, date
+import calendar
+from typing import List
+from app.models import Attendance, User
 
-CURRENT_YEAR = datetime.utcnow().year
-CURRENT_MONTH = datetime.utcnow().strftime("%B")  # e.g. January
-CURRENT_WEEK = datetime.utcnow().isocalendar().week % 4 or 4
 
-def get_last_attendance_week(entity_type: str, entity_id: int):
-    """Return the last week for which the entity submitted attendance."""
+# --------------------------------------------------------
+# 📅 CALENDAR UTILITIES
+# --------------------------------------------------------
+
+def get_current_month_info():
+    """
+    Returns:
+        current_year (int)
+        current_month_name (str)
+        current_week_of_month (int)
+        total_weeks_in_month (int)
+    """
+    today = datetime.utcnow().date()
+
+    year = today.year
+    month = today.month
+
+    # First & last day of month
+    first_day = date(year, month, 1)
+    last_day = date(year, month, calendar.monthrange(year, month)[1])
+
+    # Week number within the month (1–5)
+    current_week_of_month = ((today.day - 1) // 7) + 1
+
+    # Total possible attendance weeks this month
+    total_weeks_in_month = ((last_day.day - 1) // 7) + 1
+
+    return (
+        year,
+        today.strftime("%B"),
+        current_week_of_month,
+        total_weeks_in_month
+    )
+
+
+# --------------------------------------------------------
+# 📊 ATTENDANCE CALCULATIONS
+# --------------------------------------------------------
+
+def get_last_attendance_week(entity_type: str, entity_id: int) -> int:
+    """
+    Returns the last week submitted in the current month.
+    """
+    year, month_name, _, _ = get_current_month_info()
+
     query = Attendance.query.filter_by(
-        year=CURRENT_YEAR,
-        month=CURRENT_MONTH
+        year=year,
+        month=month_name
     )
 
     if entity_type == "state":
@@ -26,45 +66,164 @@ def get_last_attendance_week(entity_type: str, entity_id: int):
         query = query.filter_by(old_group_id=entity_id)
 
     last_record = query.order_by(Attendance.week.desc()).first()
+
     return last_record.week if last_record else 0
-   
 
-def get_attendance_status(last_filled_week):
-    """Return status type: red/yellow/green"""
+
+def calculate_weeks_missed(last_filled_week: int) -> int:
+    """
+    Calculates how many weeks the entity is behind.
+    """
+    _, _, current_week, _ = get_current_month_info()
+
     if last_filled_week == 0:
+        return current_week
+
+    return max(current_week - last_filled_week, 0)
+
+
+# --------------------------------------------------------
+# 🎨 STATUS LOGIC (ALIGNED TO YOUR NEW COLOR SCHEME)
+# --------------------------------------------------------
+
+def get_attendance_status(last_filled_week: int) -> str:
+    """
+    Returns:
+        'green'
+        'yellow'
+        'orange'
+        'red'
+        
+    """
+
+    year, month_name, current_week, total_weeks = get_current_month_info()
+
+    weeks_missed = calculate_weeks_missed(last_filled_week)
+
+    # 🔴 RED — No submission entire month and month fully elapsed
+    if last_filled_week == 0: #and current_week >= total_weeks:
         return "red"
 
-    missing = CURRENT_WEEK - last_filled_week
-
-    if missing >= 5:
-        return "red"
-    elif missing >= 1:
+    # 🟡 YELLOW — 1 week behind
+    if weeks_missed == 1:
         return "yellow"
-    else:
-        return "green"
 
+    # 🟢 GREEN — 2 weeks behind (as per your spec)
+    if weeks_missed >= 2:
+        return "orange"
+
+    # Default (up to date)
+    return "green"
+
+
+# --------------------------------------------------------
+# 🔔 NOTIFICATION RECIPIENTS (UNCHANGED)
+# --------------------------------------------------------
 
 def get_notification_recipients(entity_type: str, entity) -> List[User]:
     """
-    Returns list of User objects that should receive notifications for this entity.
-    Includes: all .admins + the entity's own leader (if exists)
+    Returns list of users that should receive notifications.
+    Includes:
+        - all admins
+        - entity leader (if exists)
     """
+
     recipients = []
 
-    # Add all admins (they are real User objects)
     if hasattr(entity, 'admins') and entity.admins:
         recipients.extend(entity.admins)
 
-    # Add the dedicated leader — create a temporary "fake" User object
     if entity.leader_email:
         leader_user = User(
-            id=0,                     # dummy id - not persisted
+            id=0,
             name=entity.leader or "Leader",
             email=entity.leader_email,
             phone=entity.leader_phone
         )
-        # Prevent duplicate if leader is already an admin (same email)
+
         if not any(u.email == leader_user.email for u in recipients):
             recipients.append(leader_user)
 
     return recipients
+
+
+
+
+
+
+
+
+
+
+
+
+# from datetime import datetime
+# from app.models import Attendance, State, Region, District, Group, OldGroup
+# from app.models import User
+# from typing import List, Optional
+
+# CURRENT_YEAR = datetime.utcnow().year
+# CURRENT_MONTH = datetime.utcnow().strftime("%B")  # e.g. January
+# CURRENT_WEEK = datetime.utcnow().isocalendar().week % 4 or 4
+
+# def get_last_attendance_week(entity_type: str, entity_id: int):
+#     """Return the last week for which the entity submitted attendance."""
+#     query = Attendance.query.filter_by(
+#         year=CURRENT_YEAR,
+#         month=CURRENT_MONTH
+#     )
+
+#     if entity_type == "state":
+#         query = query.filter_by(state_id=entity_id)
+#     elif entity_type == "region":
+#         query = query.filter_by(region_id=entity_id)
+#     elif entity_type == "district":
+#         query = query.filter_by(district_id=entity_id)
+#     elif entity_type == "group":
+#         query = query.filter_by(group_id=entity_id)
+#     elif entity_type == "old_group":
+#         query = query.filter_by(old_group_id=entity_id)
+
+#     last_record = query.order_by(Attendance.week.desc()).first()
+#     return last_record.week if last_record else 0
+   
+
+# def get_attendance_status(last_filled_week):
+#     """Return status type: red/yellow/green"""
+#     if last_filled_week == 0:
+#         return "red"
+
+#     missing = CURRENT_WEEK - last_filled_week
+
+#     if missing >= 5:
+#         return "red"
+#     elif missing >= 1:
+#         return "yellow"
+#     else:
+#         return "green"
+
+
+# def get_notification_recipients(entity_type: str, entity) -> List[User]:
+#     """
+#     Returns list of User objects that should receive notifications for this entity.
+#     Includes: all .admins + the entity's own leader (if exists)
+#     """
+#     recipients = []
+
+#     # Add all admins (they are real User objects)
+#     if hasattr(entity, 'admins') and entity.admins:
+#         recipients.extend(entity.admins)
+
+#     # Add the dedicated leader — create a temporary "fake" User object
+#     if entity.leader_email:
+#         leader_user = User(
+#             id=0,                     # dummy id - not persisted
+#             name=entity.leader or "Leader",
+#             email=entity.leader_email,
+#             phone=entity.leader_phone
+#         )
+#         # Prevent duplicate if leader is already an admin (same email)
+#         if not any(u.email == leader_user.email for u in recipients):
+#             recipients.append(leader_user)
+
+#     return recipients
