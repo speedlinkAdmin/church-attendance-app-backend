@@ -86,7 +86,12 @@ def get_attendance_monitor_summary():
         "region_id": district.region_id,
         "region": district.region.name if district.region else None,
         "state_id": district.state_id,
-        "state": district.state.name if district.state else None
+        "state": district.state.name if district.state else None,
+
+        # also including old groups
+        "old_group": district.old_group.name if district.group else None,
+        "old_group_id": district.old_group_id
+
     } for district in districts]
 
     # GROUPS - Single query
